@@ -2,6 +2,8 @@ package uni.AEDLab1.controller;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import java.util.HashMap;
+import java.util.Map;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -35,12 +37,19 @@ public class OchoReinasController {
         @RequestBody 
         QueenPositionDto queen) 
     {
-        boolean response = this.service.addQueen(queen.x(), queen.y());
+        Map<String, Object> body = new HashMap<>();
+        
+        boolean response = this.service.agregarReina(queen.x(), queen.y());        
+        body.put("response", response);
+        body.put("queens", this.service.getQueens());
+        
         if (!response) {
-            return new ResponseEntity<>(this.service.getQueens(), HttpStatusCode.valueOf(400));
+            body.put("message", "Error: No se puede colocar una reina en una posicion donde otra reina ya lo ocupe.");
+            return new ResponseEntity<>(body, HttpStatusCode.valueOf(400));
         }
         
-        return new ResponseEntity<>(this.service.getQueens(), HttpStatusCode.valueOf(201));
+        body.put("message", "Reina colcada con exito en la posición (" + queen.x() + ", " + queen.y() + ").");
+        return new ResponseEntity<>(body, HttpStatusCode.valueOf(201));
     }
     
     /**
@@ -48,20 +57,42 @@ public class OchoReinasController {
      * Consume la posicion actual de la reina y la nueva posicion en que estara para moverla.
      */
     @PatchMapping("/recursive/eight-queens")
-    public ResponseEntity<?> moveQueen(
+    public ResponseEntity<?> moverReina(
         @Valid
         @NotNull(message = "Error: Datos de entrada nulos.")
         @RequestBody 
         MoveQueenDto queenPosData) 
     {
-        boolean response = this.service.moveQueen(queenPosData.x1(), queenPosData.y1(),
+        Map<String, Object> body = new HashMap<>();
+        
+        boolean response = this.service.moverReina(queenPosData.x1(), queenPosData.y1(),
             queenPosData.x2(), queenPosData.y2());
+        body.put("response", response);
+        body.put("queens", this.service.getQueens());
         
         if (!response) {
-            return new ResponseEntity<>("Error: No se puede colocar una reina en la posición donde otra reina la ocupe.", HttpStatusCode.valueOf(400));
+            body.put("message", "Error: No se puede colocar una reina en una posicion donde otra reina ya lo ocupe.");
+            return new ResponseEntity<>(body, HttpStatusCode.valueOf(400));
         }
         
-        return new ResponseEntity<>(this.service.getQueens(), HttpStatusCode.valueOf(200));
+        body.put("message", "Reina colcada con exito en la posición (" + queenPosData.x2() + ", " + queenPosData.y2() + ").");
+        return new ResponseEntity<>(body, HttpStatusCode.valueOf(200));
+    }
+    
+    /**
+     * Endpoint PUT: /recursive/eight-queens
+     * Limpia el registro de las reinas ingresadas en el tablero.
+     */
+    @PutMapping("/recursive/eight-queens")
+    public ResponseEntity<?> cleanQueensRegister() {
+        Map<String, Object> body = new HashMap<>();
+        boolean response = this.service.reiniciarRegistroDeReinas();
+        
+        body.put("response", response);
+        body.put("queens", this.service.getQueens());
+        body.put("message", "El tablero se limpio correctamente.");
+        
+        return new ResponseEntity<>(body, HttpStatusCode.valueOf(200));
     }
 
     /**
@@ -71,17 +102,18 @@ public class OchoReinasController {
      */
     @PostMapping("/recursive/eight-queens/verify")
     public ResponseEntity<?> executeEightQueensVerification() {
-        boolean response = this.service.executeVerification();
-        return new ResponseEntity<>(response, HttpStatusCode.valueOf(200));
-    }
-    
-    /**
-     * Endpoint PUT: /recursive/eight-queens
-     * Limpia el registro de las reinas ingresadas en el tablero.
-     */
-    @PutMapping("/recursive/eight-queens")
-    public ResponseEntity<?> cleanQueensRegister() {
-        boolean response = this.service.resetQueenRegister();
+        Map<String, Object> body = new HashMap<>();
+        boolean response = this.service.ejecutarVerificacion();
+        
+        body.put("response", response);
+        body.put("queens", this.service.getQueens());
+        
+        if (!response) {
+            body.put("message", "Hay reinas que se amenazan entre si o no hay 8 reinas en total.");
+            return new ResponseEntity<>(body, HttpStatusCode.valueOf(400));
+        }
+        
+        body.put("message", "Las ocho reinas colocadas en el tablero no se amenazan entre si.");
         return new ResponseEntity<>(response, HttpStatusCode.valueOf(200));
     }
 }
