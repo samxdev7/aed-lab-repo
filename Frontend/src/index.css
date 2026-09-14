@@ -65,6 +65,9 @@
 
 body {
   margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background-color: #090b16;
 }
 
 h1,

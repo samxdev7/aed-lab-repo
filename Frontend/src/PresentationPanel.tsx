@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import joksanImg from './assets/Joksan.jpg';
 import gabrielaImg from './assets/Gabriela.jpg';
 import samuelImg from './assets/Samuel.jpg';
@@ -8,149 +8,254 @@ interface PresentationPanelProps {
 }
 
 export const PresentationPanel: React.FC<PresentationPanelProps> = ({ onNext }) => {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  // Fondo Dinámico de Nodos/Algoritmos
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animationFrameId: number;
+    let width = (canvas.width = window.innerWidth);
+    let height = (canvas.height = window.innerHeight);
+
+    const handleResize = () => {
+      if (!canvas) return;
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    };
+    window.addEventListener('resize', handleResize);
+
+    // Definición de partículas
+    const numParticles = 45;
+    const particles = Array.from({ length: numParticles }, () => ({
+      x: Math.random() * width,
+      y: Math.random() * height,
+      vx: (Math.random() - 0.5) * 0.4,
+      vy: (Math.random() - 0.5) * 0.4,
+      size: Math.random() * 2 + 1,
+    }));
+
+    const render = () => {
+      ctx.clearRect(0, 0, width, height);
+
+      // Dibujar partículas y conexiones
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+
+        if (p.x < 0 || p.x > width) p.vx *= -1;
+        if (p.y < 0 || p.y > height) p.vy *= -1;
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(168, 85, 247, 0.4)';
+        ctx.fill();
+
+        for (let j = i + 1; j < particles.length; j++) {
+          const p2 = particles[j];
+          const dx = p.x - p2.x;
+          const dy = p.y - p2.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+
+          if (dist < 130) {
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.strokeStyle = `rgba(99, 102, 241, ${1 - dist / 130})`;
+            ctx.lineWidth = 0.6;
+            ctx.stroke();
+          }
+        }
+      }
+      animationFrameId = requestAnimationFrame(render);
+    };
+
+    render();
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, []);
+
   const members = [
     {
       name: "Joksan David Escobar Velásquez",
       carnet: "2025-1468U",
+      role: "DESARROLLADOR FRONTEND",
       image: joksanImg,
-      // Tarjeta Violeta Intensa
-      cardBg: "bg-gradient-to-b from-purple-200 via-purple-100 to-purple-50",
-      borderColor: "border-purple-300 hover:border-purple-500",
-      dotColor: "bg-purple-600 shadow-[0_0_10px_rgba(147,51,234,0.8)]",
-      avatarBg: "bg-purple-300/60 border-purple-400/70 text-purple-700 group-hover:bg-purple-300 group-hover:shadow-[0_0_25px_rgba(168,85,247,0.7)]",
-      hoverGlow: "hover:shadow-[0_12px_40px_rgba(168,85,247,0.4)]",
-      textColor: "text-slate-900",
-      carnetColor: "text-purple-700 font-bold",
-      lineColor: "bg-purple-400",
+      badgeBg: "bg-purple-500/10 text-purple-300 border-purple-500/30",
+      accentGlow: "shadow-[0_0_35px_rgba(168,85,247,0.25)] hover:shadow-[0_0_50px_rgba(168,85,247,0.45)]",
+      borderColor: "border-purple-500/30 hover:border-purple-400",
+      dotColor: "bg-purple-400 shadow-[0_0_12px_#a855f7]",
+      ringColor: "border-purple-500/60 border-t-purple-300",
+      carnetColor: "text-purple-400",
+      lineGradient: "from-purple-500/80 to-indigo-500/80",
     },
     {
       name: "Gabriela Abigail Ruiz Rodríguez",
       carnet: "2025-0240U",
+      role: "DESARROLLADORA FRONTEND Y BACKEND",
       image: gabrielaImg,
-      // Tarjeta Ámbar / Amarilla Intensa
-      cardBg: "bg-gradient-to-b from-amber-200 via-amber-100 to-amber-50",
-      borderColor: "border-amber-300 hover:border-amber-500",
-      dotColor: "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.8)]",
-      avatarBg: "bg-amber-300/60 border-amber-400/70 text-amber-800 group-hover:bg-amber-300 group-hover:shadow-[0_0_25px_rgba(245,158,11,0.7)]",
-      hoverGlow: "hover:shadow-[0_12px_40px_rgba(245,158,11,0.4)]",
-      textColor: "text-slate-900",
-      carnetColor: "text-amber-800 font-bold",
-      lineColor: "bg-amber-400",
+      badgeBg: "bg-amber-500/10 text-amber-300 border-amber-500/30",
+      accentGlow: "shadow-[0_0_35px_rgba(251,191,36,0.25)] hover:shadow-[0_0_50px_rgba(251,191,36,0.45)]",
+      borderColor: "border-amber-500/30 hover:border-amber-400",
+      dotColor: "bg-amber-400 shadow-[0_0_12px_#fbbf24]",
+      ringColor: "border-amber-500/60 border-t-amber-300",
+      carnetColor: "text-amber-400",
+      lineGradient: "from-amber-500/80 to-orange-500/80",
     },
     {
       name: "Samuel Enrique Rueda Ruiz",
       carnet: "2025-2104U",
+      role: "DESARROLLADOR BACKEND",
       image: samuelImg,
-      // Tarjeta Azul Intensa
-      cardBg: "bg-gradient-to-b from-sky-200 via-sky-100 to-sky-50",
-      borderColor: "border-sky-300 hover:border-sky-500",
-      dotColor: "bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.8)]",
-      avatarBg: "bg-sky-300/60 border-sky-400/70 text-blue-700 group-hover:bg-sky-300 group-hover:shadow-[0_0_25px_rgba(59,130,246,0.7)]",
-      hoverGlow: "hover:shadow-[0_12px_40px_rgba(59,130,246,0.4)]",
-      textColor: "text-slate-900",
-      carnetColor: "text-blue-700 font-bold",
-      lineColor: "bg-blue-400",
+      badgeBg: "bg-cyan-500/10 text-cyan-300 border-cyan-500/30",
+      accentGlow: "shadow-[0_0_35px_rgba(34,211,238,0.25)] hover:shadow-[0_0_50px_rgba(34,211,238,0.45)]",
+      borderColor: "border-cyan-500/30 hover:border-cyan-400",
+      dotColor: "bg-cyan-400 shadow-[0_0_12px_#22d3ee]",
+      ringColor: "border-cyan-500/60 border-t-cyan-300",
+      carnetColor: "text-cyan-400",
+      lineGradient: "from-cyan-500/80 to-blue-500/80",
     },
   ];
 
   return (
-    <div className="relative min-h-screen bg-[#0d0e26] text-white flex flex-col justify-between p-6 sm:p-10 overflow-hidden select-none">
+    <div className="relative h-[100dvh] w-screen bg-[#090b16] text-white flex flex-col justify-between p-3 sm:p-4 overflow-hidden select-none">
       
-      {/* Luces Ambientales de Fondo */}
-      <div className="absolute -bottom-24 -left-24 w-[600px] h-[600px] bg-purple-600/20 rounded-full blur-[140px] pointer-events-none" />
-      <div className="absolute -bottom-24 -right-24 w-[600px] h-[600px] bg-indigo-500/20 rounded-full blur-[140px] pointer-events-none" />
-      
-      {/* Puntos de Matriz Laterales */}
+      {/* Importación de fuentes legibles y limpias */}
+      <style>
+        {`
+          @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
+          
+          .font-tech-header {
+            font-family: 'Rajdhani', sans-serif;
+            letter-spacing: 0.08em;
+          }
+          .font-tech-body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+          }
+
+          @keyframes spin-slow {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+          .animate-spin-slow {
+            animation: spin-slow 12s linear infinite;
+          }
+        `}
+      </style>
+
+      {/* Canvas para Fondo de Red de Algoritmos */}
+      <canvas ref={canvasRef} className="absolute inset-0 z-0 pointer-events-none opacity-60" />
+
+      {/* Destellos Ambientales Neón */}
+      <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[700px] h-[350px] bg-indigo-600/15 rounded-full blur-[160px] pointer-events-none" />
+      <div className="absolute -bottom-28 -left-28 w-[500px] h-[500px] bg-purple-700/20 rounded-full blur-[150px] pointer-events-none" />
+      <div className="absolute -bottom-28 -right-28 w-[500px] h-[500px] bg-cyan-600/20 rounded-full blur-[150px] pointer-events-none" />
+
+      {/* Grid de Puntos Estilizados */}
       <div 
-        className="absolute top-20 left-8 w-24 h-24 opacity-20 pointer-events-none hidden md:block"
-        style={{
-          backgroundImage: `radial-gradient(#ffffff 2px, transparent 2px)`,
-          backgroundSize: '12px 12px'
-        }}
+        className="absolute top-12 left-10 w-32 h-32 opacity-15 pointer-events-none hidden lg:block"
+        style={{ backgroundImage: `radial-gradient(#ffffff 2px, transparent 2px)`, backgroundSize: '14px 14px' }}
       />
       <div 
-        className="absolute top-48 right-8 w-24 h-24 opacity-20 pointer-events-none hidden md:block"
-        style={{
-          backgroundImage: `radial-gradient(#ffffff 2px, transparent 2px)`,
-          backgroundSize: '12px 12px'
-        }}
+        className="absolute top-12 right-10 w-32 h-32 opacity-15 pointer-events-none hidden lg:block"
+        style={{ backgroundImage: `radial-gradient(#ffffff 2px, transparent 2px)`, backgroundSize: '14px 14px' }}
       />
 
       {/* Encabezado Principal */}
-      <header className="relative z-10 text-center mt-2 space-y-4">
-        <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white drop-shadow-md">
+      <header className="relative z-10 text-center mt-0 space-y-1 sm:space-y-2 font-tech-body">
+        {/* Título de la Universidad con Gradiente y Resplandor Cyberpunk */}
+        <h1 className="font-tech-header text-xl sm:text-3xl md:text-4xl font-extrabold uppercase tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-white to-purple-300 drop-shadow-[0_0_25px_rgba(168,85,247,0.5)]">
           Universidad Nacional de Ingeniería
         </h1>
 
-        {/* Subtítulo decorativo */}
-        <div className="flex items-center justify-center gap-3 text-purple-200/90 text-base sm:text-xl font-medium">
-          <div className="flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-purple-300/60" />
-            <span className="h-[1px] w-12 sm:w-24 bg-gradient-to-r from-transparent to-purple-300/60" />
-            <span className="w-2 h-2 rounded-full bg-purple-300" />
+        {/* Separador Cyberpunk */}
+        <div className="flex items-center justify-center gap-3 text-purple-200/90 text-xs sm:text-sm font-medium">
+          <div className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+            <span className="h-[1px] w-12 sm:w-28 bg-gradient-to-r from-transparent to-cyan-400" />
+            <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_10px_#22d3ee]" />
           </div>
           
-          <span>Algoritmización y Estructuras de Datos</span>
+          <span className="tracking-wide font-bold text-slate-200 uppercase text-xs sm:text-base">
+            Algoritmización y Estructuras de Datos
+          </span>
 
-          <div className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-purple-300" />
-            <span className="h-[1px] w-12 sm:w-24 bg-gradient-to-l from-transparent to-purple-300/60" />
-            <span className="w-1.5 h-1.5 rounded-full bg-purple-300/60" />
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-purple-400 shadow-[0_0_10px_#c084fc]" />
+            <span className="h-[1px] w-12 sm:w-28 bg-gradient-to-l from-transparent to-purple-400" />
+            <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />
           </div>
         </div>
 
-        {/* Cápsula de Carrera */}
+        {/* Badge de Carrera con Efecto Glassmorphism */}
         <div className="inline-block pt-1">
-          <div className="px-6 py-2 rounded-full bg-slate-100/90 text-slate-900 font-semibold text-sm sm:text-base shadow-lg backdrop-blur-md border border-white/50">
-            Carrera: <span className="font-bold text-indigo-900">Ingeniería en Computación</span>
+          <div className="px-6 py-2 rounded-full bg-[#11162b]/80 backdrop-blur-xl text-slate-300 text-xs sm:text-sm border border-indigo-500/30 shadow-[0_0_20px_rgba(99,102,241,0.2)]">
+            Carrera: <span className="font-bold text-cyan-300 tracking-wider font-tech-header text-base">INGENIERÍA EN COMPUTACIÓN</span>
           </div>
         </div>
       </header>
 
-      {/* Tarjetas de Integrantes */}
-      <main className="relative z-10 max-w-5xl mx-auto w-full grid grid-cols-1 md:grid-cols-3 gap-8 my-auto py-6">
+      {/* Sección de Integrantes */}
+      <main className="relative z-10 max-w-6xl mx-auto w-full grid grid-cols-1 md:grid-cols-3 gap-3 my-auto py-1 font-tech-body">
         {members.map((member, index) => (
           <div
             key={index}
-            className={`group relative ${member.cardBg} border-2 ${member.borderColor} rounded-3xl p-7 flex flex-col items-center text-center shadow-xl ${member.hoverGlow} hover:-translate-y-2 transition-all duration-300 cursor-pointer`}
+            className={`group relative bg-[#0f1426]/85 backdrop-blur-xl border ${member.borderColor} ${member.accentGlow} rounded-3xl p-3 flex flex-col items-center text-center transition-all duration-500 hover:-translate-y-3 cursor-pointer`}
           >
-            {/* Punto de acento con brillo */}
-            <span className={`absolute top-5 right-5 w-3.5 h-3.5 rounded-full ${member.dotColor} transition-transform group-hover:scale-125 duration-300`} />
+            {/* Indicador LED Neón de Estado */}
+            <span className={`absolute top-3 right-3 w-2.5 h-2.5 rounded-full ${member.dotColor} group-hover:scale-125 transition-transform duration-300`} />
 
-            {/* Círculo de Foto / Avatar con Resplandor de Neón */}
-            <div className={`relative w-28 h-28 rounded-full ${member.avatarBg} border-2 flex flex-col items-center justify-center mb-6 shadow-inner transition-all duration-300 overflow-hidden`}>
-              {member.image ? (
-                <img src={member.image} alt={member.name} className="w-full h-full object-cover" />
-              ) : (
-                <svg className="w-12 h-12 stroke-current opacity-90 transition-transform group-hover:scale-110 duration-300" fill="none" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-              )}
+            {/* Foto con Anillo Holográfico Giratorio */}
+            <div className="relative w-16 h-16 sm:w-20 sm:h-20 mb-2 flex items-center justify-center">
+              {/* Anillo de Carga / Holo */}
+              <div className={`absolute inset-0 rounded-full border-2 border-dashed ${member.ringColor} animate-spin-slow pointer-events-none`} />
+              
+              <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full overflow-hidden border-2 border-white/20 shadow-inner bg-slate-900/80 flex items-center justify-center">
+                {member.image ? (
+                  <img src={member.image} alt={member.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                ) : (
+                  <svg className="w-8 h-8 stroke-current text-slate-400" fill="none" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                )}
+              </div>
             </div>
 
+            {/* Badge de Rol / Etiqueta Tech - Ahora súper legible */}
+            <span className={`px-2 py-1 rounded-md text-[9px] sm:text-[10px] font-bold tracking-wider uppercase border ${member.badgeBg} font-tech-header mb-1`}>
+              {member.role}
+            </span>
+
             {/* Nombre del Integrante */}
-            <h3 className={`font-extrabold text-lg ${member.textColor} leading-snug min-h-[3rem] flex items-center justify-center`}>
+            <h3 className="font-bold text-xs sm:text-sm text-white leading-tight min-h-[2rem] flex items-center justify-center tracking-wide">
               {member.name}
             </h3>
             
-            {/* Línea Separadora */}
-            <span className={`w-10 h-1.5 rounded-full ${member.lineColor} my-3 transition-all group-hover:w-16 duration-300`} />
+            {/* Línea Decorativa con Gradiente */}
+            <span className={`w-8 h-1 rounded-full bg-gradient-to-r ${member.lineGradient} my-1 transition-all group-hover:w-12 duration-300`} />
 
-            {/* Carnet */}
-            <span className={`text-sm ${member.carnetColor} tracking-wide`}>
+            {/* Carnet Universitario */}
+            <span className={`text-sm ${member.carnetColor} tracking-widest font-tech-header font-bold`}>
               {member.carnet}
             </span>
           </div>
         ))}
       </main>
 
-      {/* Botón Siguiente */}
-      <footer className="relative z-10 flex justify-end p-2">
+      {/* Botón Siguiente con Animación Neón */}
+      <footer className="relative z-10 flex justify-end p-1 font-tech-body">
         <button
           onClick={onNext}
-          className="relative inline-flex items-center gap-3 px-8 py-3.5 rounded-2xl font-bold text-white bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-600 bg-[length:200%_auto] hover:bg-right shadow-lg shadow-blue-600/40 hover:shadow-indigo-500/60 hover:-translate-y-0.5 active:translate-y-0 active:scale-95 transition-all duration-300 group cursor-pointer"
+          className="relative inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-white bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-[length:200%_auto] hover:bg-right shadow-lg shadow-indigo-600/40 hover:shadow-purple-500/70 hover:-translate-y-1 active:translate-y-0 active:scale-95 transition-all duration-300 group cursor-pointer border border-indigo-300/30"
         >
-          <span>Siguiente</span>
+          <span className="font-tech-header text-base tracking-wider">Siguiente</span>
           <svg 
             className="w-5 h-5 transform group-hover:translate-x-1.5 transition-transform duration-300" 
             fill="none" 

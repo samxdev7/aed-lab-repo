@@ -1,112 +1,88 @@
 import { useState } from 'react';
 import { PresentationPanel } from './PresentationPanel';
-import { ArrayMenuPanel } from './ArrayMenuPanel';
-import { SortingMethodsPanel } from './SortingMethodsPanel';
-import { BinarySearchPanel } from './BinarySearchPanel';
-import { ShakerSortPanel } from './ShakerSortPanel';
-import { BubbleSortPanel } from './BubbleSortPanel';
-import { BubbleSortSignalPanel } from './BubbleSortSignalPanel';
-import { InsertionSortPanel } from './InsertionSortPanel';
-import { SelectionSortPanel } from './SelectionSortPanel';
-import { ShellSortPanel } from './ShellSortPanel';
+import { RecursiveMenuPanel } from './RecursiveMenuPanel';
 import { NotificationProvider } from './NotificationContext';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<
     | 'presentation'
     | 'menu'
-    | 'ordered'
-    | 'binarySearch'
-    | 'sacudida'
-    | 'burbuja'
-    | 'burbujaSenal'
-    | 'baraja'
-    | 'seleccion'
-    | 'shell'
+    | 'hanoi'
+    | 'frog'
+    | 'queens'
+    | 'quicksort'
   >('presentation');
 
   return (
     <NotificationProvider>
-      <main className="w-full min-h-screen">
+      <main className="w-full h-screen overflow-hidden">
         {currentScreen === 'presentation' && (
           <PresentationPanel onNext={() => setCurrentScreen('menu')} />
         )}
 
         {currentScreen === 'menu' && (
-          <ArrayMenuPanel
+          <RecursiveMenuPanel
             onBack={() => setCurrentScreen('presentation')}
-            onSelectOrdered={() => setCurrentScreen('ordered')}
-            onSelectUnordered={() => setCurrentScreen('binarySearch')}
+            onSelectHanoi={() => setCurrentScreen('hanoi')}
+            onSelectFrog={() => setCurrentScreen('frog')}
+            onSelectQueens={() => setCurrentScreen('queens')}
+            onSelectQuickSort={() => setCurrentScreen('quicksort')}
           />
         )}
 
-        {currentScreen === 'ordered' && (
-          <SortingMethodsPanel
-            onBack={() => setCurrentScreen('menu')}
-            onSelectAlgorithm={(algorithmId: string) => {
-              if (algorithmId === 'sacudida') {
-                setCurrentScreen('sacudida');
-              } else if (algorithmId === 'burbuja') {
-                setCurrentScreen('burbuja');
-              } else if (algorithmId === 'burbujaSenal' || algorithmId === 'burbuja-senal') {
-                setCurrentScreen('burbujaSenal');
-              } else if (
-                algorithmId === 'baraja' ||
-                algorithmId === 'insercion' ||
-                algorithmId === 'baraja-insercion'
-              ) {
-                setCurrentScreen('baraja');
-              } else if (algorithmId === 'seleccion' || algorithmId === 'selection') {
-                setCurrentScreen('seleccion');
-              } else if (algorithmId === 'shell') {
-                setCurrentScreen('shell');
-              }
-            }}
-          />
+        {/* Maquetación estática de vistas para los 4 ejercicios */}
+
+        {currentScreen === 'hanoi' && (
+          <div className="min-h-screen bg-[#0B0D1B] text-white p-8 flex flex-col justify-between">
+            <h1 className="text-3xl font-bold text-cyan-400">Torres de Hanoi</h1>
+            <p className="text-slate-400">Interfaz base lista para implementar lógica de animación.</p>
+            <button
+              onClick={() => setCurrentScreen('menu')}
+              className="px-6 py-2 bg-indigo-600 rounded-xl w-fit"
+            >
+              Atrás
+            </button>
+          </div>
         )}
 
-        {currentScreen === 'sacudida' && (
-          <ShakerSortPanel
-            onBack={() => setCurrentScreen('ordered')}
-          />
+        {currentScreen === 'frog' && (
+          <div className="min-h-screen bg-[#0B0D1B] text-white p-8 flex flex-col justify-between">
+            <h1 className="text-3xl font-bold text-emerald-400">Salto de la Rana</h1>
+            <p className="text-slate-400">Interfaz base lista para implementar lógica de animación.</p>
+            <button
+              onClick={() => setCurrentScreen('menu')}
+              className="px-6 py-2 bg-indigo-600 rounded-xl w-fit"
+            >
+              Atrás
+            </button>
+          </div>
         )}
 
-        {currentScreen === 'burbuja' && (
-          <BubbleSortPanel
-            onBack={() => setCurrentScreen('ordered')}
-          />
+        {currentScreen === 'queens' && (
+          <div className="min-h-screen bg-[#0B0D1B] text-white p-8 flex flex-col justify-between">
+            <h1 className="text-3xl font-bold text-purple-400">8 Reinas</h1>
+            <p className="text-slate-400">Interfaz base lista para implementar lógica de animación.</p>
+            <button
+              onClick={() => setCurrentScreen('menu')}
+              className="px-6 py-2 bg-indigo-600 rounded-xl w-fit"
+            >
+              Atrás
+            </button>
+          </div>
         )}
 
-        {currentScreen === 'burbujaSenal' && (
-          <BubbleSortSignalPanel
-            onBack={() => setCurrentScreen('ordered')}
-          />
+        {currentScreen === 'quicksort' && (
+          <div className="min-h-screen bg-[#0B0D1B] text-white p-8 flex flex-col justify-between">
+            <h1 className="text-3xl font-bold text-amber-400">Quick Sort</h1>
+            <p className="text-slate-400">Interfaz base lista para implementar lógica de animación.</p>
+            <button
+              onClick={() => setCurrentScreen('menu')}
+              className="px-6 py-2 bg-indigo-600 rounded-xl w-fit"
+            >
+              Atrás
+            </button>
+          </div>
         )}
-
-        {currentScreen === 'baraja' && (
-          <InsertionSortPanel
-            onBack={() => setCurrentScreen('ordered')}
-          />
-        )}
-
-        {currentScreen === 'seleccion' && (
-          <SelectionSortPanel
-            onBack={() => setCurrentScreen('ordered')}
-          />
-        )}
-
-        {currentScreen === 'shell' && (
-          <ShellSortPanel
-            onBack={() => setCurrentScreen('ordered')}
-          />
-        )}
-
-        {currentScreen === 'binarySearch' && (
-          <BinarySearchPanel
-            onBack={() => setCurrentScreen('menu')}
-          />
-        )}
-
       </main>
     </NotificationProvider>
   );
