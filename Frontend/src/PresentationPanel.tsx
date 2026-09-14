@@ -2,6 +2,8 @@ import React, { useEffect, useRef } from 'react';
 import joksanImg from './assets/Joksan.jpg';
 import gabrielaImg from './assets/Gabriela.jpg';
 import samuelImg from './assets/Samuel.jpg';
+import { useMouseParallax } from './useMouseParallax';
+import { useSoundEffects } from './useSoundEffects';
 
 interface PresentationPanelProps {
   onNext: () => void;
@@ -9,6 +11,13 @@ interface PresentationPanelProps {
 
 export const PresentationPanel: React.FC<PresentationPanelProps> = ({ onNext }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const parallax = useMouseParallax(12);
+  const { playHoverSound, playClickSound } = useSoundEffects();
+
+  const handleNext = () => {
+    playClickSound();
+    onNext();
+  };
 
   // Fondo Dinámico de Nodos/Algoritmos
   useEffect(() => {
@@ -99,7 +108,7 @@ export const PresentationPanel: React.FC<PresentationPanelProps> = ({ onNext }) 
     {
       name: "Gabriela Abigail Ruiz Rodríguez",
       carnet: "2025-0240U",
-      role: "DESARROLLADORA FRONTEND Y BACKEND",
+      role: "DESAROLLADORA FULLSTACK",
       image: gabrielaImg,
       badgeBg: "bg-amber-500/10 text-amber-300 border-amber-500/30",
       accentGlow: "shadow-[0_0_35px_rgba(251,191,36,0.25)] hover:shadow-[0_0_50px_rgba(251,191,36,0.45)]",
@@ -154,22 +163,42 @@ export const PresentationPanel: React.FC<PresentationPanelProps> = ({ onNext }) 
       <canvas ref={canvasRef} className="absolute inset-0 z-0 pointer-events-none opacity-60" />
 
       {/* Destellos Ambientales Neón */}
-      <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[700px] h-[350px] bg-indigo-600/15 rounded-full blur-[160px] pointer-events-none" />
-      <div className="absolute -bottom-28 -left-28 w-[500px] h-[500px] bg-purple-700/20 rounded-full blur-[150px] pointer-events-none" />
-      <div className="absolute -bottom-28 -right-28 w-[500px] h-[500px] bg-cyan-600/20 rounded-full blur-[150px] pointer-events-none" />
+      <div 
+        className="absolute -top-32 left-1/2 -translate-x-1/2 w-[700px] h-[350px] bg-indigo-600/15 rounded-full blur-[160px] pointer-events-none" 
+        style={{ transform: `translate3d(${parallax.x * 0.5}px, ${parallax.y * 0.5}px, 0)` }}
+      />
+      <div 
+        className="absolute -bottom-28 -left-28 w-[500px] h-[500px] bg-purple-700/20 rounded-full blur-[150px] pointer-events-none" 
+        style={{ transform: `translate3d(${parallax.x * 0.8}px, ${parallax.y * 0.8}px, 0)` }}
+      />
+      <div 
+        className="absolute -bottom-28 -right-28 w-[500px] h-[500px] bg-cyan-600/20 rounded-full blur-[150px] pointer-events-none" 
+        style={{ transform: `translate3d(${parallax.x * -0.6}px, ${parallax.y * -0.6}px, 0)` }}
+      />
 
       {/* Grid de Puntos Estilizados */}
       <div 
-        className="absolute top-12 left-10 w-32 h-32 opacity-15 pointer-events-none hidden lg:block"
-        style={{ backgroundImage: `radial-gradient(#ffffff 2px, transparent 2px)`, backgroundSize: '14px 14px' }}
+        className="absolute top-12 left-10 w-32 h-32 opacity-15 pointer-events-none hidden lg:block transition-transform duration-75"
+        style={{ 
+          backgroundImage: `radial-gradient(#ffffff 2px, transparent 2px)`, 
+          backgroundSize: '14px 14px',
+          transform: `translate3d(${parallax.x * -1}px, ${parallax.y * -1}px, 0)` 
+        }}
       />
       <div 
-        className="absolute top-12 right-10 w-32 h-32 opacity-15 pointer-events-none hidden lg:block"
-        style={{ backgroundImage: `radial-gradient(#ffffff 2px, transparent 2px)`, backgroundSize: '14px 14px' }}
+        className="absolute top-12 right-10 w-32 h-32 opacity-15 pointer-events-none hidden lg:block transition-transform duration-75"
+        style={{ 
+          backgroundImage: `radial-gradient(#ffffff 2px, transparent 2px)`, 
+          backgroundSize: '14px 14px',
+          transform: `translate3d(${parallax.x}px, ${parallax.y}px, 0)`
+        }}
       />
 
       {/* Encabezado Principal */}
-      <header className="relative z-10 text-center mt-0 space-y-1 sm:space-y-2 font-tech-body">
+      <header 
+        className="relative z-10 text-center mt-0 space-y-1 sm:space-y-2 font-tech-body transition-transform duration-75"
+        style={{ transform: `translate3d(${parallax.x * 0.3}px, ${parallax.y * 0.3}px, 0)` }}
+      >
         {/* Título de la Universidad con Gradiente y Resplandor Cyberpunk */}
         <h1 className="font-tech-header text-xl sm:text-3xl md:text-4xl font-extrabold uppercase tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-white to-purple-300 drop-shadow-[0_0_25px_rgba(168,85,247,0.5)]">
           Universidad Nacional de Ingeniería
@@ -203,10 +232,14 @@ export const PresentationPanel: React.FC<PresentationPanelProps> = ({ onNext }) 
       </header>
 
       {/* Sección de Integrantes */}
-      <main className="relative z-10 max-w-6xl mx-auto w-full grid grid-cols-1 md:grid-cols-3 gap-3 my-auto py-1 font-tech-body">
+      <main 
+        className="relative z-10 max-w-6xl mx-auto w-full grid grid-cols-1 md:grid-cols-3 gap-3 my-auto py-1 font-tech-body transition-transform duration-75"
+        style={{ transform: `translate3d(${parallax.x * 0.6}px, ${parallax.y * 0.6}px, 0)` }}
+      >
         {members.map((member, index) => (
           <div
             key={index}
+            onMouseEnter={playHoverSound}
             className={`group relative bg-[#0f1426]/85 backdrop-blur-xl border ${member.borderColor} ${member.accentGlow} rounded-3xl p-3 flex flex-col items-center text-center transition-all duration-500 hover:-translate-y-3 cursor-pointer`}
           >
             {/* Indicador LED Neón de Estado */}
@@ -250,9 +283,13 @@ export const PresentationPanel: React.FC<PresentationPanelProps> = ({ onNext }) 
       </main>
 
       {/* Botón Siguiente con Animación Neón */}
-      <footer className="relative z-10 flex justify-end p-1 font-tech-body">
+      <footer 
+        className="relative z-10 flex justify-end p-1 font-tech-body transition-transform duration-75"
+        style={{ transform: `translate3d(${parallax.x * 0.4}px, ${parallax.y * 0.4}px, 0)` }}
+      >
         <button
-          onClick={onNext}
+          onClick={handleNext}
+          onMouseEnter={playHoverSound}
           className="relative inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-white bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-[length:200%_auto] hover:bg-right shadow-lg shadow-indigo-600/40 hover:shadow-purple-500/70 hover:-translate-y-1 active:translate-y-0 active:scale-95 transition-all duration-300 group cursor-pointer border border-indigo-300/30"
         >
           <span className="font-tech-header text-base tracking-wider">Siguiente</span>
