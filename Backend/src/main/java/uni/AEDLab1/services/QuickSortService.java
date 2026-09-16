@@ -30,20 +30,22 @@ public class QuickSortService {
      *  Funcion reductora: toma un pivote para luego mandar a la izquierda todos los elementos
      *  mas pequeños que el mismo pivote. Una vez hecho eso se llama a la misma funcion con rangos
      *  seccionados del arreglo.
-     *  @param left -> Indice minimo para el arreglo durante la llamada.
-     *  @param right -> Indice maximo para el arreglo durante la llamada.
+     *  @param start -> Indice minimo para el arreglo durante la llamada.
+     *  @param end -> Indice maximo para el arreglo durante la llamada.
      */
-    public void reduce(int left, int right) {
-        if (left >= right) return;
-        int i = left, pivot = array[right];
+    public void reduce(int start, int end) {
+        if (start >= end) return;
+        int left = start - 1, right = end + 1, pivot = array[start];
         
-        for (int j = left; j < right; j++) {
-            if (array[j] < pivot) { swap(i, j); i++; }
+        while (true) {
+            do { left++; } while (this.array[left] < pivot);
+            do { right--; } while (this.array[right] > pivot);
+            if (left >= right) break;
+            swap(left, right);
         }
         
-        swap(i, right);
-        reduce(left, i-1);
-        reduce(i+1, right);
+        reduce(start, right);
+        reduce(right + 1, end);
     }
     
     /**
