@@ -128,7 +128,7 @@ export const HanoiPanel: React.FC<HanoiPanelProps> = ({ onBack }) => {
 
   // Bucle de animación continua con setInterval
   useEffect(() => {
-    let timer: NodeJS.Timeout;
+    let timer: ReturnType<typeof setInterval>;
     if (reproduciendo && pasoActual < movimientos.length) {
       timer = setInterval(() => {
         ejecutarSiguientePaso();
