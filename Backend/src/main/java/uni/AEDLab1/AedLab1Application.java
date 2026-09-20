@@ -8,13 +8,14 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @SpringBootApplication
 public class AedLab1Application {
+
     public static void main(String[] args) {
         SpringApplication.run(AedLab1Application.class, args);
     }
-    
+
     @Bean
     public WebMvcConfigurer corsConfigurer() {
-	return new WebMvcConfigurer() {
+        return new WebMvcConfigurer() {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
                 registry
@@ -24,6 +25,6 @@ public class AedLab1Application {
                     .allowedHeaders("*")
                     .allowCredentials(true);
             }
-	};
+        };
     }
 }
