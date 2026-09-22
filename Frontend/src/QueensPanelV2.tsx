@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSoundEffects } from './useSoundEffects';
+import { useNotification } from './NotificationContext';
 
 interface QueensPanelV2Props {
   onBack?: () => void;
@@ -10,9 +11,15 @@ export const QueensPanelV2: React.FC<QueensPanelV2Props> = ({ onBack }) => {
   
   const [currentStep, setCurrentStep] = useState<number>(0);
   const [showHighlight, setShowHighlight] = useState<boolean>(true);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  
+  // States for drag & drop and hover effects
+  const [draggedQueen, setDraggedQueen] = useState<{r: number, c: number} | null>(null);
+  const [dragOverTile, setDragOverTile] = useState<{r: number, c: number} | null>(null);
+  const [hoveredQueen, setHoveredQueen] = useState<{r: number, c: number} | null>(null);
 
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const { playClickSound, playHoverSound } = useSoundEffects();
+  const { showNotification } = useNotification();
 
   useEffect(() => {
     setShowHighlight(true);
@@ -140,7 +147,7 @@ export const QueensPanelV2: React.FC<QueensPanelV2Props> = ({ onBack }) => {
     const c = solution[r];
     const rank = 8 - r;
     const file = String.fromCharCode(97 + c);
-    return `MOVIMIENTO: Reina ${step} [D${file}${rank}]`;
+    return `movimiento: reina ${step} [d${file}${rank}]`;
   };
 
   const isComplete = currentStep >= 8;
@@ -158,7 +165,7 @@ export const QueensPanelV2: React.FC<QueensPanelV2Props> = ({ onBack }) => {
       <header className="w-full flex-shrink-0 flex items-center justify-between px-10 pt-2 pb-0 z-10">
         
         <div className="flex flex-col justify-center">
-          <h1 className="text-4xl lg:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white via-cyan-100 to-cyan-400 drop-shadow-[0_0_25px_rgba(34,211,238,0.7)] font-sans tracking-[0.15em] uppercase">
+          <h1 className="text-4xl lg:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white via-cyan-100 to-cyan-400 drop-shadow-[0_0_10px_rgba(34,211,238,0.3)] font-sans tracking-[0.15em] uppercase">
             ACERTIJO 8 REINAS
           </h1>
         </div>
@@ -170,14 +177,14 @@ export const QueensPanelV2: React.FC<QueensPanelV2Props> = ({ onBack }) => {
             disabled={isComplete}
             className={`px-8 py-2.5 rounded-full font-bold text-sm tracking-wide transition-all flex items-center gap-2
               ${isComplete 
-                ? 'bg-[#183957] text-cyan-500/50 cursor-not-allowed shadow-[0_0_15px_rgba(6,182,212,0.1)]' 
-                : 'bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white shadow-[0_0_25px_rgba(6,182,212,0.6)] hover:shadow-[0_0_40px_rgba(6,182,212,0.8)] active:scale-95'
+                ? 'bg-[#0f172a] text-cyan-500/30 cursor-not-allowed border border-[#1e293b]' 
+                : 'bg-slate-800/80 hover:bg-slate-700 border border-cyan-700 text-cyan-50 shadow-[0_0_15px_rgba(6,182,212,0.15)] active:scale-95'
               }`}
           >
             INSERTAR REINA ➔
           </button>
           
-          <div className="bg-[#e0f2fe] border border-cyan-300 rounded-full px-8 py-2.5 shadow-[0_0_15px_rgba(186,230,253,0.5)] flex items-center justify-center min-w-[120px]">
+          <div className="bg-[#e0f2fe] border border-cyan-300 rounded-full px-8 py-2.5 shadow-sm flex items-center justify-center min-w-[120px]">
             <span className="text-cyan-700 font-extrabold text-sm tracking-widest">
               {currentStep} / 8
             </span>
@@ -186,7 +193,7 @@ export const QueensPanelV2: React.FC<QueensPanelV2Props> = ({ onBack }) => {
           <button 
             onClick={handleReiniciar}
             onMouseEnter={playHoverSound}
-            className="px-8 py-2.5 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 text-white rounded-full font-bold text-sm tracking-wide shadow-[0_0_25px_rgba(249,115,22,0.5)] hover:shadow-[0_0_40px_rgba(249,115,22,0.7)] transition-all active:scale-95"
+            className="px-8 py-2.5 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 text-white rounded-full font-bold text-sm tracking-wide shadow-md hover:shadow-lg transition-all active:scale-95"
           >
             REINICIAR
           </button>
@@ -197,7 +204,7 @@ export const QueensPanelV2: React.FC<QueensPanelV2Props> = ({ onBack }) => {
       {/* flex-1 toma todo el espacio restante. p-1 para tocar casi los bordes y ser gigante. */}
       <main className="flex-1 flex flex-col items-center justify-center p-1 min-h-0 z-10 w-full">
         
-        <div className="relative aspect-square h-full max-h-full max-w-full p-0.5 border-[4px] border-cyan-500/40 rounded-xl shadow-[0_0_80px_rgba(14,165,233,0.3)] bg-[#02050f] overflow-hidden backdrop-blur-xl">
+        <div className="relative aspect-square h-full max-h-full max-w-full p-0.5 border-[4px] border-cyan-500/40 rounded-md shadow-[0_0_15px_rgba(14,165,233,0.1)] bg-[#02050f] overflow-hidden backdrop-blur-xl">
           
           <div className="absolute inset-0 grid grid-cols-8 grid-rows-8 z-0">
             {Array.from({ length: 8 }).map((_, row) =>
@@ -205,23 +212,45 @@ export const QueensPanelV2: React.FC<QueensPanelV2Props> = ({ onBack }) => {
                 const isBlackTile = (row + col) % 2 === 1;
                 const rank = 8 - row;
                 const file = String.fromCharCode(97 + col);
+                const isDragOverInvalid = dragOverTile?.r === row && dragOverTile?.c === col && draggedQueen && (draggedQueen.r !== row || draggedQueen.c !== col);
                 
+                let tileBg = isBlackTile 
+                  ? 'bg-gradient-to-br from-[#060a12] to-[#020308] shadow-[inset_0_0_20px_rgba(0,0,0,0.9)]' 
+                  : 'bg-gradient-to-br from-[#0d1a33] to-[#070e20] shadow-[inset_0_0_15px_rgba(0,0,0,0.6)]';
+
+                if (isDragOverInvalid) {
+                  tileBg = 'bg-red-950/40 shadow-[inset_0_0_25px_rgba(239,68,68,0.3)] !border-red-500/50';
+                }
+
                 return (
                   <div
                     key={`tile-${row}-${col}`}
-                    className={`relative w-full h-full border border-[#22d3ee]/5 transition-colors duration-500 ${
-                      isBlackTile 
-                        ? 'bg-gradient-to-br from-[#060a12] to-[#020308] shadow-[inset_0_0_20px_rgba(0,0,0,0.9)]' 
-                        : 'bg-gradient-to-br from-[#0d1a33] to-[#070e20] shadow-[inset_0_0_15px_rgba(0,0,0,0.6)]'
-                    }`}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = "move";
+                      if (!dragOverTile || dragOverTile.r !== row || dragOverTile.c !== col) {
+                        setDragOverTile({ r: row, c: col });
+                      }
+                    }}
+                    onDragLeave={() => setDragOverTile(null)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (draggedQueen && (draggedQueen.r !== row || draggedQueen.c !== col)) {
+                        showNotification('error', 'Movimiento inválido', 'No puedes poner la pieza aquí.');
+                        playClickSound();
+                      }
+                      setDraggedQueen(null);
+                      setDragOverTile(null);
+                    }}
+                    className={`relative w-full h-full border border-[#22d3ee]/5 transition-colors duration-200 ${tileBg}`}
                   >
                     {col === 0 && (
-                      <span className="absolute top-1 left-1.5 text-[clamp(10px,1.5vh,16px)] font-black text-cyan-500/60 select-none">
+                      <span className="absolute top-1 left-1.5 text-[clamp(14px,2.5vh,20px)] font-black text-cyan-500/60 select-none pointer-events-none">
                         {rank}
                       </span>
                     )}
                     {row === 7 && (
-                      <span className="absolute bottom-0.5 right-1.5 text-[clamp(10px,1.5vh,16px)] font-black text-cyan-500/60 select-none uppercase">
+                      <span className="absolute bottom-0.5 right-1.5 text-[clamp(14px,2.5vh,20px)] font-black text-cyan-500/60 select-none pointer-events-none">
                         {file}
                       </span>
                     )}
@@ -231,38 +260,52 @@ export const QueensPanelV2: React.FC<QueensPanelV2Props> = ({ onBack }) => {
             )}
           </div>
 
-          {currentStep > 0 && currentStep <= 8 && (
-            <svg className="absolute inset-0 w-full h-full pointer-events-none z-10">
-              {(() => {
-                const r = currentStep - 1;
-                const c = solution[r];
-                const cx = `${(c + 0.5) * 12.5}%`;
-                const cy = `${(r + 0.5) * 12.5}%`;
+          {(() => {
+            let attackLinesQueen: {r: number, c: number} | null = null;
+            if (hoveredQueen) {
+              attackLinesQueen = hoveredQueen;
+            } else if (currentStep > 0 && showHighlight && !draggedQueen) {
+              attackLinesQueen = { r: currentStep - 1, c: solution[currentStep - 1] };
+            }
+            
+            if (!attackLinesQueen) return null;
+            
+            const r = attackLinesQueen.r;
+            const c = attackLinesQueen.c;
+            const cx = `${(c + 0.5) * 12.5}%`;
+            const cy = `${(r + 0.5) * 12.5}%`;
 
-                const tl = getCenter(r - Math.min(r, c), c - Math.min(r, c));
-                const br = getCenter(r + Math.min(7 - r, 7 - c), c + Math.min(7 - r, 7 - c));
-                
-                const tr = getCenter(r - Math.min(r, 7 - c), c + Math.min(r, 7 - c));
-                const bl = getCenter(r + Math.min(7 - r, c), c - Math.min(7 - r, c));
+            const tl = getCenter(r - Math.min(r, c), c - Math.min(r, c));
+            const br = getCenter(r + Math.min(7 - r, 7 - c), c + Math.min(7 - r, 7 - c));
+            
+            const tr = getCenter(r - Math.min(r, 7 - c), c + Math.min(r, 7 - c));
+            const bl = getCenter(r + Math.min(7 - r, c), c - Math.min(7 - r, c));
 
-                return (
-                  <g 
-                    stroke="#22d3ee" 
-                    strokeWidth="4" 
-                    strokeLinecap="round"
-                    strokeDasharray="0 20" 
-                    opacity="0.9"
-                    className="animate-pulse drop-shadow-[0_0_8px_#22d3ee]"
-                  >
-                    <line x1="2%" y1={cy} x2="98%" y2={cy} />
-                    <line x1={cx} y1="2%" x2={cx} y2="98%" />
-                    <line x1={`${tl.x}%`} y1={`${tl.y}%`} x2={`${br.x}%`} y2={`${br.y}%`} />
-                    <line x1={`${tr.x}%`} y1={`${tr.y}%`} x2={`${bl.x}%`} y2={`${bl.y}%`} />
-                  </g>
-                );
-              })()}
-            </svg>
-          )}
+            return (
+              <svg className="absolute inset-0 w-full h-full pointer-events-none z-10">
+                <defs>
+                  <mask id={`hole-attack`}>
+                    <rect width="100%" height="100%" fill="white" />
+                    <rect x={`${c * 12.5}%`} y={`${r * 12.5}%`} width="12.5%" height="12.5%" fill="black" />
+                  </mask>
+                </defs>
+                <g 
+                  stroke="#22d3ee" 
+                  strokeWidth="4" 
+                  strokeLinecap="round"
+                  strokeDasharray="0 20" 
+                  opacity="0.9"
+                  className="animate-pulse"
+                  mask={`url(#hole-attack)`}
+                >
+                  <line x1="2%" y1={cy} x2="98%" y2={cy} />
+                  <line x1={cx} y1="2%" x2={cx} y2="98%" />
+                  <line x1={`${tl.x}%`} y1={`${tl.y}%`} x2={`${br.x}%`} y2={`${br.y}%`} />
+                  <line x1={`${tr.x}%`} y1={`${tr.y}%`} x2={`${bl.x}%`} y2={`${bl.y}%`} />
+                </g>
+              </svg>
+            );
+          })()}
 
           <div className="absolute inset-0 grid grid-cols-8 grid-rows-8 z-20 pointer-events-none">
             {Array.from({ length: 8 }).map((_, row) =>
@@ -276,13 +319,24 @@ export const QueensPanelV2: React.FC<QueensPanelV2Props> = ({ onBack }) => {
                     className="relative flex items-center justify-center"
                   >
                     {isLatest && (
-                      <div className="absolute inset-0 shadow-[inset_0_0_50px_rgba(34,211,238,0.7)] bg-cyan-400/20 z-0"></div>
+                      <div className="absolute inset-0 shadow-[inset_0_0_30px_rgba(30,58,138,0.6)] bg-blue-900/30 z-0"></div>
                     )}
                     
                     {hasQueen && (
-                      <div className="w-[85%] h-[85%] relative flex items-center justify-center animate-[popIn_0.4s_cubic-bezier(0.175,0.885,0.32,1.275)] z-10">
-                        {isLatest && <div className="absolute inset-0 bg-cyan-300/40 rounded-full blur-2xl animate-pulse"></div>}
-                        
+                      <div 
+                        draggable
+                        onDragStart={(e) => {
+                          setDraggedQueen({ r: row, c: col });
+                          e.dataTransfer.effectAllowed = "move";
+                        }}
+                        onDragEnd={() => {
+                          setDraggedQueen(null);
+                          setDragOverTile(null);
+                        }}
+                        onMouseEnter={() => setHoveredQueen({ r: row, c: col })}
+                        onMouseLeave={() => setHoveredQueen(null)}
+                        className={`w-[85%] h-[85%] relative flex items-center justify-center animate-[popIn_0.4s_cubic-bezier(0.175,0.885,0.32,1.275)] z-10 pointer-events-auto cursor-grab active:cursor-grabbing ${draggedQueen?.r === row && draggedQueen?.c === col ? 'opacity-50' : ''}`}
+                      >
                         {/* VISTA DE PERFIL 3D REALISTA (Cuerpo Entero), MATERIAL OBSIDIANA ELEGANTE */}
                         <svg viewBox="0 0 100 150" className="w-full h-full drop-shadow-[0_15px_15px_rgba(0,0,0,0.8)] relative z-10">
                           <defs>
@@ -297,24 +351,13 @@ export const QueensPanelV2: React.FC<QueensPanelV2Props> = ({ onBack }) => {
                               <stop offset="100%" stopColor="#0f172a" />
                             </linearGradient>
                             
-                            {/* Aura Cyan sutil para la reina actual */}
-                            <linearGradient id={`cyanAura3D-${row}`} x1="0%" y1="0%" x2="100%" y2="0%">
-                              <stop offset="0%" stopColor="#083344" />
-                              <stop offset="20%" stopColor="#0891b2" />
-                              <stop offset="40%" stopColor="#67e8f9" />
-                              <stop offset="50%" stopColor="#cffafe" />
-                              <stop offset="60%" stopColor="#67e8f9" />
-                              <stop offset="80%" stopColor="#0891b2" />
-                              <stop offset="100%" stopColor="#083344" />
-                            </linearGradient>
-
                             <filter id={`depthFilter-${row}`}>
                                 <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="black" floodOpacity="0.6"/>
                             </filter>
                           </defs>
 
-                          <g fill={isLatest ? `url(#cyanAura3D-${row})` : `url(#obsidian3D-${row})`} 
-                             stroke={isLatest ? "#22d3ee" : "#64748b"} 
+                          <g fill={`url(#obsidian3D-${row})`} 
+                             stroke="#64748b" 
                              strokeWidth="0.75" 
                              filter={`url(#depthFilter-${row})`}
                           >
