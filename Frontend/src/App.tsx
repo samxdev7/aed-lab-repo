@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { PresentationPanel } from './PresentationPanel';
 import { RecursiveMenuPanel } from './RecursiveMenuPanel';
 import { NotificationProvider } from './NotificationContext';
+import { QueensPanelV2 } from './QueensPanelV2';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<
@@ -59,16 +60,7 @@ export default function App() {
         )}
 
         {currentScreen === 'queens' && (
-          <div className="min-h-screen bg-[#0B0D1B] text-white p-8 flex flex-col justify-between">
-            <h1 className="text-3xl font-bold text-purple-400">8 Reinas</h1>
-            <p className="text-slate-400">Interfaz base lista para implementar lógica de animación.</p>
-            <button
-              onClick={() => setCurrentScreen('menu')}
-              className="px-6 py-2 bg-indigo-600 rounded-xl w-fit"
-            >
-              Atrás
-            </button>
-          </div>
+          <QueensPanelV2 onBack={() => setCurrentScreen('menu')} />
         )}
 
         {currentScreen === 'quicksort' && (
