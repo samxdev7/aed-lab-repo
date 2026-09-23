@@ -146,8 +146,8 @@ export const QueensPanelV2: React.FC<QueensPanelV2Props> = ({ onBack }) => {
     const r = step - 1;
     const c = solution[r];
     const rank = 8 - r;
-    const file = String.fromCharCode(97 + c);
-    return `movimiento: reina ${step} [d${file}${rank}]`;
+    const file = String.fromCharCode(97 + c); // a-h lowercase
+    return `MOVIMIENTO: REINA ${step} [D${file}${rank}]`;
   };
 
   const isComplete = currentStep >= 8;
@@ -416,7 +416,7 @@ export const QueensPanelV2: React.FC<QueensPanelV2Props> = ({ onBack }) => {
       {/* ================= FOOTER ================= */}
       <footer className="w-full flex-shrink-0 px-10 pb-2 pt-0 flex items-center justify-between z-10">
         
-        <div className="text-[#94a3b8] text-[13px] font-bold tracking-widest uppercase bg-[#0B0F19]/90 px-6 py-2.5 rounded-xl backdrop-blur-md border border-cyan-500/20 shadow-[0_0_20px_rgba(6,182,212,0.1)]">
+        <div className="text-[#94a3b8] text-[13px] font-bold tracking-widest bg-[#0B0F19]/90 px-6 py-2.5 rounded-xl backdrop-blur-md border border-cyan-500/20 shadow-[0_0_20px_rgba(6,182,212,0.1)]">
           {getAlgebraicNotation(currentStep)}
         </div>
         
