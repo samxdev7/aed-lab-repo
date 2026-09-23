@@ -37,6 +37,7 @@ export const QuickSortPanel: React.FC<QuickSortPanelProps> = ({ onBack }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const isMounted = useRef(true);
   const cancelAnim = useRef(false);
+  const userArray = useRef([...initialArray]);
 
   const { playClickSound, playHoverSound } = useSoundEffects();
   const { showNotification } = useNotification();
@@ -45,7 +46,7 @@ export const QuickSortPanel: React.FC<QuickSortPanelProps> = ({ onBack }) => {
     isMounted.current = true;
     return () => {
       isMounted.current = false;
-      cancelAnim.current = true; // Stop any running loops on unmount
+      cancelAnim.current = true;
     };
   }, []);
 
@@ -78,6 +79,16 @@ export const QuickSortPanel: React.FC<QuickSortPanelProps> = ({ onBack }) => {
 
   const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
 
+  const handleInputChange = (id: number, valStr: string) => {
+    let numStr = valStr.replace(/\D/g, '').substring(0, 3);
+    let num = numStr === '' ? 0 : parseInt(numStr);
+    setArray(prev => {
+      const next = prev.map(a => a.id === id ? { ...a, value: num } : a);
+      userArray.current = [...next]; // Guardamos el arreglo base del usuario
+      return next;
+    });
+  };
+
   const handleStartSimulation = async () => {
     if (isAnimating) return;
     if (isSorted) {
@@ -90,69 +101,17 @@ export const QuickSortPanel: React.FC<QuickSortPanelProps> = ({ onBack }) => {
     cancelAnim.current = false;
     playClickSound();
 
-    const steps: SortStep[] = [];
-    const arr = [...initialArray];
-    let activeRange: [number, number] | null = null;
-
-    const pushStep = (pivot: number|null, i: number|null, j: number|null, elevated: number[], swap: any, text: string, action: SortStep['action'] = 'compare') => {
-      steps.push({ array: [...arr], pivot, i, j, elevated: [...elevated], swapLine: swap, phaseText: text, action, range: activeRange });
-    };
-
-    const partition = (low: number, high: number): number => {
-      const pivot = arr[low].value;
-      pushStep(low, null, null, [], null, `Seleccionando PIVOTE en índice ${low}: [${pivot}]`, 'compare');
-      let left = low + 1;
-      let right = high;
-      
-      while (true) {
-        pushStep(low, left, right, [], null, `Buscando elementos para intercambiar...`, 'compare');
-        while (left <= right && arr[left].value <= pivot) {
-          left++;
-          if (left <= right) pushStep(low, left, right, [], null, `Avanzando i: [${arr[left].value}] <= PIVOTE`, 'compare');
-        }
-        while (left <= right && arr[right].value > pivot) {
-          right--;
-          if (left <= right) pushStep(low, left, right, [], null, `Retrocediendo j: [${arr[right].value}] > PIVOTE`, 'compare');
-        }
-        if (left <= right) {
-           pushStep(low, left, right, [left, right], null, `¡Encontró par! i [${arr[left].value}] y j [${arr[right].value}]`, 'found');
-           const temp = arr[left]; arr[left] = arr[right]; arr[right] = temp;
-           pushStep(low, left, right, [left, right], {from: left, to: right}, `Intercambiando posiciones...`, 'swap');
-           pushStep(low, left, right, [], null, `Intercambio realizado`, 'done');
-           left++;
-           right--;
-        } else {
-           break;
-        }
-      }
-      
-      if (right !== low && right >= 0 && right < arr.length) {
-        pushStep(low, right, null, [low, right], null, `Colocando PIVOTE en su lugar final`, 'found');
-        const temp = arr[low]; arr[low] = arr[right]; arr[right] = temp;
-        pushStep(right, null, null, [low, right], {from: low, to: right}, `Moviendo PIVOTE...`, 'swap');
-        pushStep(right, null, null, [], null, `PIVOTE acomodado en índice ${right}`, 'done');
-      }
-      return right;
-    };
-
-    const qs = (low: number, high: number) => {
-      if (low < high) {
-        activeRange = [low, high];
-        pushStep(null, null, null, [], null, `Iniciando partición en rango [${low} a ${high}]`, 'new_partition');
-        const pi = partition(low, high);
-        qs(low, pi - 1);
-        qs(pi + 1, high);
-      } else if (low === high) {
-        activeRange = [low, high];
-        pushStep(null, null, null, [], null, `Sub-arreglo de 1 elemento, índice ${low} ya ordenado`, 'new_partition');
-      }
-    };
-
-    activeRange = [0, arr.length - 1];
-    pushStep(null, null, null, [], null, 'INICIANDO SIMULACIÓN DE ORDENAMIENTO', 'compare');
-    qs(0, arr.length - 1);
-    activeRange = null;
-    pushStep(null, null, null, [], null, '¡ORDENAMIENTO COMPLETADO!', 'finish');
+    // =====================================================================
+    // Aquí se debe realizar la petición (fetch/axios) a la API en Java.
+    // 1. Enviar 'array.map(a => a.value)' al endpoint.
+    // 2. Recibir la respuesta con el arreglo de pasos (steps).
+    // =====================================================================
+    
+    // Simulación temporal de la respuesta de la API para probar la UI
+    const steps: SortStep[] = [
+      { array: [...array], pivot: null, i: null, j: null, elevated: [], swapLine: null, phaseText: 'ESPERANDO RESPUESTA DE LA API...', action: 'compare', range: null },
+      { array: [...array], pivot: null, i: null, j: null, elevated: [], swapLine: null, phaseText: '¡ORDENAMIENTO COMPLETADO!', action: 'finish', range: null }
+    ];
 
     for (let i = 0; i < steps.length; i++) {
       if (!isMounted.current || cancelAnim.current) break;
@@ -199,7 +158,7 @@ export const QuickSortPanel: React.FC<QuickSortPanelProps> = ({ onBack }) => {
   const handleReset = () => {
     playClickSound();
     cancelAnim.current = true; // Interrupt loop if running
-    setArray(initialArray);
+    setArray([...userArray.current]);
     setPivotIndex(null);
     setIPointer(null);
     setJPointer(null);
@@ -303,7 +262,6 @@ export const QuickSortPanel: React.FC<QuickSortPanelProps> = ({ onBack }) => {
         </div>
         
         <div className="flex items-center gap-4">
-           {/* ESPACIO PARA BACKEND: Aquí es donde conectarán la API Java en el futuro. */}
            <button 
              onClick={handleStartSimulation}
              onMouseEnter={playHoverSound}
@@ -333,7 +291,7 @@ export const QuickSortPanel: React.FC<QuickSortPanelProps> = ({ onBack }) => {
             {/* Punteros Superiores */}
             <div className="absolute -top-12 left-0 right-0 h-10 pointer-events-none z-30">
                 <div 
-                  className={`absolute flex flex-col items-center transition-all duration-500 ${pivotIndex !== null ? 'opacity-100 scale-100' : 'opacity-0 scale-50'}`}
+                  className={`absolute flex flex-col items-center transition-all duration-700 ease-in-out ${pivotIndex !== null ? 'opacity-100 scale-100' : 'opacity-0 scale-50'} ${pivotIndex !== null && elevatedIndices.includes(pivotIndex) ? '-translate-y-8' : ''}`}
                   style={{ left: `calc(${(pivotIndex ?? 0) * 10}%)`, width: '10%' }}
                 >
                     <span className="text-cyan-400 font-bold mb-1 tracking-wider text-sm">PIVOTE</span>
@@ -343,7 +301,7 @@ export const QuickSortPanel: React.FC<QuickSortPanelProps> = ({ onBack }) => {
                 </div>
 
                 <div 
-                  className={`absolute flex flex-col items-center transition-all duration-500 ${iPointer !== null ? 'opacity-100 scale-100' : 'opacity-0 scale-50'}`}
+                  className={`absolute flex flex-col items-center transition-all duration-700 ease-in-out ${iPointer !== null ? 'opacity-100 scale-100' : 'opacity-0 scale-50'} ${iPointer !== null && elevatedIndices.includes(iPointer) ? '-translate-y-8' : ''}`}
                   style={{ left: `calc(${(iPointer ?? 0) * 10}%)`, width: '10%' }}
                 >
                     <span className="text-purple-400 font-bold mb-1 tracking-wider text-sm">i</span>
@@ -353,7 +311,7 @@ export const QuickSortPanel: React.FC<QuickSortPanelProps> = ({ onBack }) => {
                 </div>
                 
                 <div 
-                  className={`absolute flex flex-col items-center transition-all duration-500 ${jPointer !== null ? 'opacity-100 scale-100' : 'opacity-0 scale-50'}`}
+                  className={`absolute flex flex-col items-center transition-all duration-700 ease-in-out ${jPointer !== null ? 'opacity-100 scale-100' : 'opacity-0 scale-50'} ${jPointer !== null && elevatedIndices.includes(jPointer) ? '-translate-y-8' : ''}`}
                   style={{ left: `calc(${(jPointer ?? 0) * 10}%)`, width: '10%' }}
                 >
                     <span className="text-emerald-400 font-bold mb-1 tracking-wider text-sm">j</span>
@@ -376,15 +334,22 @@ export const QuickSortPanel: React.FC<QuickSortPanelProps> = ({ onBack }) => {
                   style={{ left: `calc(${index * 10}%)`, width: '10%' }}
                 >
                   <div 
-                    className={`w-16 h-20 md:w-20 md:h-24 flex items-center justify-center rounded-lg border-2 transition-all duration-300 shadow-lg ${
+                    className={`w-16 h-20 md:w-20 md:h-24 flex items-center justify-center rounded-lg border-2 transition-all duration-300 shadow-lg overflow-hidden ${
                       isElevated
                         ? 'bg-emerald-900/80 border-emerald-400 text-emerald-50 shadow-[0_0_30px_rgba(52,211,153,0.6)]'
                         : isPivot 
                           ? 'bg-cyan-900/50 border-cyan-400 text-cyan-50 shadow-[0_0_20px_rgba(34,211,238,0.4)]'
-                          : 'bg-[#0d1a33] border-slate-700 text-white'
+                          : 'bg-[#0d1a33] border-slate-700 text-white hover:border-slate-500 hover:bg-[#15254a]'
                     }`}
                   >
-                    <span className="text-2xl md:text-3xl font-black">{item.value}</span>
+                    <input 
+                      type="text"
+                      maxLength={3}
+                      value={item.value}
+                      disabled={isAnimating || isSorted}
+                      onChange={(e) => handleInputChange(item.id, e.target.value)}
+                      className="w-full h-full bg-transparent text-center outline-none text-2xl md:text-3xl font-black cursor-text disabled:cursor-default disabled:opacity-100"
+                    />
                   </div>
                 </div>
               );
