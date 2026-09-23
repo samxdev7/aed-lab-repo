@@ -31,7 +31,10 @@ const DISK_COLORS: Record<number, { bg: string; border: string; text: string; sh
 
 // Altura de despeje: cuánto debe subir el disco (medido desde la base de la
 // torre) para liberar el poste más alto antes de desplazarse horizontalmente.
-const ALTURA_DESPEJE = 280;
+// El poste mide 320px, así que se deja un margen cómodo por encima de esa
+// altura para que el disco se vea claramente por encima de la punta, no
+// rozándola.
+const ALTURA_DESPEJE = 400;
 
 // Alto de cada disco (h-9 = 36px) + separación entre discos (gap-1.5 = 6px).
 // Se usa para calcular a qué altura real, dentro de su pila, estaba el disco
@@ -39,6 +42,25 @@ const ALTURA_DESPEJE = 280;
 const DISC_HEIGHT_PX = 36;
 const DISC_GAP_PX = 6;
 const SLOT_PITCH_PX = DISC_HEIGHT_PX + DISC_GAP_PX;
+
+// Velocidades preestablecidas: intervalo entre movimientos (ms) y duración
+// de la animación de cada disco (s), guardando siempre la misma proporción
+// entre ambos.
+type VelocidadKey = 'lenta' | 'normal' | 'rapida';
+const VELOCIDADES: Record<VelocidadKey, { label: string; intervalo: number; duracion: number }> = {
+  lenta: { label: 'Lenta', intervalo: 1300, duracion: 1.0 },
+  normal: { label: 'Normal', intervalo: 700, duracion: 0.6 },
+  rapida: { label: 'Rápida', intervalo: 400, duracion: 0.32 },
+};
+
+// Tamaño de diseño fijo del panel. Todo el contenido se dibuja a este tamaño
+// y luego se escala de forma uniforme (ver "scale" más abajo) para ajustarse
+// a cualquier ventana o nivel de zoom del navegador, sin que cambien las
+// proporciones relativas entre los elementos. Se parte del tamaño original
+// (1920x1080) y se divide entre 1.1 para que todo el contenido se vea
+// exactamente un 10% más grande al escalarse a la ventana.
+const DESIGN_WIDTH = 1920 / 1.1;
+const DESIGN_HEIGHT = 1080 / 1.1;
 
 export const HanoiPanel: React.FC<HanoiPanelProps> = ({ onBack }) => {
   const [discos, setDiscos] = useState<number>(3);
@@ -53,6 +75,25 @@ export const HanoiPanel: React.FC<HanoiPanelProps> = ({ onBack }) => {
     B: [],
     C: [],
   });
+
+  const [velocidad, setVelocidad] = useState<VelocidadKey>('normal');
+
+  // Factor de escala para que el panel de diseño fijo (DESIGN_WIDTH x
+  // DESIGN_HEIGHT) quepa siempre completo en la ventana visible, sin
+  // recortes ni scroll, y sin verse afectado por el zoom del navegador
+  // (que solo cambia cuántos px "caben" en la ventana).
+  const [scale, setScale] = useState(1);
+
+  useEffect(() => {
+    const actualizarEscala = () => {
+      const escalaX = window.innerWidth / DESIGN_WIDTH;
+      const escalaY = window.innerHeight / DESIGN_HEIGHT;
+      setScale(Math.min(escalaX, escalaY));
+    };
+    actualizarEscala();
+    window.addEventListener('resize', actualizarEscala);
+    return () => window.removeEventListener('resize', actualizarEscala);
+  }, []);
 
   // Refs a los contenedores de cada poste, usados para medir la distancia
   // horizontal REAL entre torres (en píxeles) en lugar de asumirla en %.
@@ -148,12 +189,12 @@ export const HanoiPanel: React.FC<HanoiPanelProps> = ({ onBack }) => {
     if (reproduciendo && pasoActual < movimientos.length) {
       timer = setInterval(() => {
         ejecutarSiguientePaso();
-      }, 700);
+      }, VELOCIDADES[velocidad].intervalo);
     } else if (pasoActual >= movimientos.length) {
       setReproduciendo(false);
     }
     return () => clearInterval(timer);
-  }, [reproduciendo, pasoActual, movimientos]);
+  }, [reproduciendo, pasoActual, movimientos, velocidad]);
 
   const reiniciar = (): void => {
     setReproduciendo(false);
@@ -165,7 +206,17 @@ export const HanoiPanel: React.FC<HanoiPanelProps> = ({ onBack }) => {
   };
 
   return (
-    <div className="relative h-dvh w-screen max-h-dvh bg-slate-950 text-indigo-200 font-sans flex flex-col justify-between pt-3 px-8 pb-4 overflow-hidden select-none">
+    <div className="fixed inset-0 bg-slate-950 flex items-center justify-center overflow-hidden select-none">
+      <div
+        style={{
+          width: DESIGN_WIDTH,
+          height: DESIGN_HEIGHT,
+          transform: `scale(${scale})`,
+          transformOrigin: 'center center',
+        }}
+        className="relative flex-shrink-0"
+      >
+    <div className="relative w-full h-full bg-slate-950 text-indigo-200 font-sans flex flex-col justify-between pt-3 px-8 pb-4 overflow-hidden select-none">
 
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e1b4b15_1px,transparent_1px),linear-gradient(to_bottom,#1e1b4b15_1px,transparent_1px)] bg-[size:4rem_4rem] pointer-events-none" />
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-blue-600/10 blur-[120px] rounded-full pointer-events-none" />
@@ -205,6 +256,22 @@ export const HanoiPanel: React.FC<HanoiPanelProps> = ({ onBack }) => {
             />
           </label>
 
+          <label className="text-base font-semibold text-indigo-300 flex items-center gap-3 bg-slate-900/80 px-4 py-2.5 rounded-2xl border border-indigo-800/40 backdrop-blur-md">
+            VELOCIDAD:
+            <select
+              value={velocidad}
+              disabled={reproduciendo}
+              onChange={(e) => setVelocidad(e.target.value as VelocidadKey)}
+              className="bg-slate-950 border border-indigo-600/50 text-indigo-200 font-bold px-3 py-1 rounded-xl text-left focus:outline-none focus:border-blue-400 text-base disabled:opacity-50 cursor-pointer"
+            >
+              {(Object.keys(VELOCIDADES) as VelocidadKey[]).map((key) => (
+                <option key={key} value={key} className="bg-slate-950 text-indigo-200">
+                  {VELOCIDADES[key].label}
+                </option>
+              ))}
+            </select>
+          </label>
+
           <button
             onClick={resolverHanoi}
             disabled={cargando || reproduciendo}
@@ -242,21 +309,23 @@ export const HanoiPanel: React.FC<HanoiPanelProps> = ({ onBack }) => {
 
       <main className="relative z-10 flex-1 min-h-0 flex items-end justify-around py-4 px-12">
         {(['A', 'B', 'C'] as const).map((torreKey) => (
-          <div key={torreKey} className="relative flex flex-col items-center justify-end h-full w-1/4">
+          <div key={torreKey} className="relative flex flex-col items-center justify-center h-full w-1/4">
 
-            <div className="absolute -top-1 text-2xl font-extrabold text-indigo-100 tracking-wider drop-shadow-[0_0_15px_rgba(99,102,241,0.5)]">
-              {torreKey}
-            </div>
+            {/* Bloque compacto: poste + discos, con altura fija propia (no
+                depende de la altura total de la columna) para que la torre
+                se vea con un tamaño consistente y prominente. La base queda
+                unida directamente al poste, y la letra va debajo de todo. */}
+            <div className="relative w-full h-[320px] flex-shrink-0 flex flex-col items-center justify-end">
 
-            <div className="absolute bottom-4 w-4 h-[85%] max-h-[320px] bg-gradient-to-t from-slate-800 to-indigo-950/80 rounded-t-lg border-t-2 border-indigo-500/30 shadow-lg shadow-indigo-950/50" />
+              <div className="absolute bottom-0 w-5 h-full bg-gradient-to-t from-slate-800 to-indigo-950/80 rounded-t-lg border-t-2 border-indigo-500/30 shadow-lg shadow-indigo-950/50" />
 
-            {/* Contenedor de discos: ahora con ref para poder medir su posición real en pantalla */}
-            <div
-              ref={torreRefs[torreKey]}
-              className="z-10 flex flex-col-reverse items-center w-full mb-3 gap-1.5 relative min-h-[200px]"
-            >
-              <AnimatePresence>
-                {torres[torreKey].map((discoId) => {
+              {/* Contenedor de discos: ahora con ref para poder medir su posición real en pantalla */}
+              <div
+                ref={torreRefs[torreKey]}
+                className="z-10 flex flex-col-reverse items-center w-full gap-1.5 relative min-h-[300px]"
+              >
+                <AnimatePresence>
+                  {torres[torreKey].map((discoId) => {
                   const anchoPorcentaje = 25 + (discoId / 7) * 70;
                   const style = DISK_COLORS[discoId] || DISK_COLORS[1];
 
@@ -278,9 +347,13 @@ export const HanoiPanel: React.FC<HanoiPanelProps> = ({ onBack }) => {
                     if (origenEl && destinoEl) {
                       const origenRect = origenEl.getBoundingClientRect();
                       const destinoRect = destinoEl.getBoundingClientRect();
+                      // Las medidas de getBoundingClientRect ya están en píxeles
+                      // de pantalla (afectados por el scale() del panel), pero el
+                      // transform del disco opera en píxeles "de diseño" (antes
+                      // del escalado). Se divide por scale para compensarlo.
                       startXpx =
-                        (origenRect.left + origenRect.width / 2) -
-                        (destinoRect.left + destinoRect.width / 2);
+                        ((origenRect.left + origenRect.width / 2) -
+                          (destinoRect.left + destinoRect.width / 2)) / (scale || 1);
                     }
 
                     // Índice (desde la base, 0 = piso) de la posición que ocupaba
@@ -319,7 +392,7 @@ export const HanoiPanel: React.FC<HanoiPanelProps> = ({ onBack }) => {
                         y: esDiscoMovido ? [startYpx, peakYpx, peakYpx, 0] : 0,
                       }}
                       transition={{
-                        duration: 0.6,
+                        duration: VELOCIDADES[velocidad].duracion,
                         times: [0, 0.25, 0.75, 1],
                         ease: 'easeInOut',
                       }}
@@ -339,8 +412,13 @@ export const HanoiPanel: React.FC<HanoiPanelProps> = ({ onBack }) => {
                 })}
               </AnimatePresence>
             </div>
+            </div>
 
-            <div className="w-full h-5 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border-t-2 border-indigo-500/40 rounded-xl text-center text-xs text-indigo-300 pt-0.5 font-bold shadow-2xl">
+            <div className="w-full h-6 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border-t-2 border-indigo-500/40 rounded-xl text-center text-xs text-indigo-300 pt-0.5 font-bold shadow-2xl">
+            </div>
+
+            <div className="mt-3 text-3xl font-extrabold text-indigo-100 tracking-wider drop-shadow-[0_0_15px_rgba(99,102,241,0.5)]">
+              {torreKey}
             </div>
           </div>
         ))}
@@ -363,6 +441,8 @@ export const HanoiPanel: React.FC<HanoiPanelProps> = ({ onBack }) => {
           </button>
         )}
       </footer>
+    </div>
+      </div>
     </div>
   );
 };
