@@ -7,7 +7,7 @@ import uni.AEDLab1.models.MovimientoRanaDto;
 import uni.AEDLab1.models.SaltoRanaRespuestaDto;
 import uni.AEDLab1.services.SaltoRanaServicio;
 
-import java.util.List;
+import java.util.Arrays;
 
 @RestController
 @RequestMapping("/api/salto-rana")
@@ -29,14 +29,14 @@ public class SaltoRanaController {
         }
 
         try {
-            List<MovimientoRanaDto> movimientos = servicioSaltoRana.resolver(ranasPorLado);
-            String estadoFinal = movimientos.get(movimientos.size() - 1).estadoResultante();
+            MovimientoRanaDto[] movimientos = servicioSaltoRana.resolver(ranasPorLado);
+            String estadoFinal = movimientos[movimientos.length - 1].estadoResultante();
 
             SaltoRanaRespuestaDto respuesta = new SaltoRanaRespuestaDto(
                 "V".repeat(ranasPorLado) + "_" + "C".repeat(ranasPorLado),
                 estadoFinal,
-                movimientos.size(),
-                movimientos
+                movimientos.length,
+                Arrays.asList(movimientos)
             );
 
             return new ResponseEntity<>(respuesta, HttpStatusCode.valueOf(200));

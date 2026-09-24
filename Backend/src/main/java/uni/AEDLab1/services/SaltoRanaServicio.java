@@ -2,8 +2,7 @@ package uni.AEDLab1.services;
 
 import uni.AEDLab1.models.MovimientoRanaDto;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Arrays;
 
 public class SaltoRanaServicio {
 
@@ -11,16 +10,25 @@ public class SaltoRanaServicio {
     private static final char RANA_CAFE = 'C';
     private static final char ESPACIO_VACIO = '_';
 
-    public List<MovimientoRanaDto> resolver(int ranasPorLado) {
-        char[] estadoActual = construirEstadoInicial(ranasPorLado);
-        List<MovimientoRanaDto> movimientosEncontrados = new ArrayList<>();
+    // Arreglo estático donde se van guardando los movimientos (reemplaza al ArrayList)
+    private MovimientoRanaDto[] movimientos;
+    private int cantidadMovimientos;
 
-        boolean seEncontroSolucion = intentarResolverDesde(estadoActual, movimientosEncontrados);
+    public MovimientoRanaDto[] resolver(int ranasPorLado) {
+        char[] estadoActual = construirEstadoInicial(ranasPorLado);
+
+        // Capacidad máxima conocida para este problema: N*(N+2) movimientos
+        int capacidadMaxima = ranasPorLado * (ranasPorLado + 2);
+        movimientos = new MovimientoRanaDto[capacidadMaxima];
+        cantidadMovimientos = 0;
+
+        boolean seEncontroSolucion = intentarResolverDesde(estadoActual);
         if (!seEncontroSolucion) {
             throw new IllegalStateException("No se encontró solución para " + ranasPorLado + " ranas por lado.");
         }
 
-        return movimientosEncontrados;
+        // Se recorta el arreglo al tamaño real de movimientos usados
+        return Arrays.copyOf(movimientos, cantidadMovimientos);
     }
 
     private char[] construirEstadoInicial(int ranasPorLado) {
@@ -50,7 +58,7 @@ public class SaltoRanaServicio {
     }
 
     // Retorna true si desde "estado" se logra llegar a la solución final.
-    private boolean intentarResolverDesde(char[] estado, List<MovimientoRanaDto> movimientos) {
+    private boolean intentarResolverDesde(char[] estado) {
         if (esEstadoSolucion(estado)) {
             return true;
         }
@@ -60,21 +68,21 @@ public class SaltoRanaServicio {
         for (int posicion = 0; posicion <= ultimoIndice; posicion++) {
 
             if (estado[posicion] == RANA_VERDE) {
-                if (intentarMovimiento(estado, movimientos, posicion, posicion + 1, ultimoIndice, RANA_VERDE)) {
+                if (intentarMovimiento(estado, posicion, posicion + 1, ultimoIndice, RANA_VERDE)) {
                     return true;
                 }
                 if (posicion + 2 <= ultimoIndice && estado[posicion + 1] == RANA_CAFE
-                    && intentarMovimiento(estado, movimientos, posicion, posicion + 2, ultimoIndice, RANA_VERDE)) {
+                    && intentarMovimiento(estado, posicion, posicion + 2, ultimoIndice, RANA_VERDE)) {
                     return true;
                 }
             }
 
             if (estado[posicion] == RANA_CAFE) {
-                if (intentarMovimiento(estado, movimientos, posicion, posicion - 1, ultimoIndice, RANA_CAFE)) {
+                if (intentarMovimiento(estado, posicion, posicion - 1, ultimoIndice, RANA_CAFE)) {
                     return true;
                 }
                 if (posicion - 2 >= 0 && estado[posicion - 1] == RANA_VERDE
-                    && intentarMovimiento(estado, movimientos, posicion, posicion - 2, ultimoIndice, RANA_CAFE)) {
+                    && intentarMovimiento(estado, posicion, posicion - 2, ultimoIndice, RANA_CAFE)) {
                     return true;
                 }
             }
@@ -84,24 +92,28 @@ public class SaltoRanaServicio {
     }
 
     private boolean intentarMovimiento(
-        char[] estado, List<MovimientoRanaDto> movimientos,
-        int origen, int destino, int ultimoIndice, char tipoFicha
+        char[] estado, int origen, int destino, int ultimoIndice, char tipoFicha
     ) {
         if (destino < 0 || destino > ultimoIndice || estado[destino] != ESPACIO_VACIO) {
             return false;
         }
 
         intercambiar(estado, origen, destino);
-        movimientos.add(new MovimientoRanaDto(
-            movimientos.size() + 1, origen, destino, tipoFicha, new String(estado)
-        ));
 
-        if (intentarResolverDesde(estado, movimientos)) {
+        // Agregar movimiento al arreglo estático
+        movimientos[cantidadMovimientos] = new MovimientoRanaDto(
+            cantidadMovimientos + 1, origen, destino, tipoFicha, new String(estado)
+        );
+        cantidadMovimientos++;
+
+        if (intentarResolverDesde(estado)) {
             return true;
         }
 
-        movimientos.remove(movimientos.size() - 1);
-        intercambiar(estado, destino, origen); // deshacer
+        // Deshacer: se quita el último movimiento agregado
+        cantidadMovimientos--;
+        movimientos[cantidadMovimientos] = null;
+        intercambiar(estado, destino, origen);
         return false;
     }
 
