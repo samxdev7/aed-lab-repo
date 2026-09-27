@@ -11,45 +11,60 @@ const HanoiIcon = () => (
     <line x1="32" y1="20" x2="32" y2="56" className="stroke-cyan-600" />
     <line x1="48" y1="20" x2="48" y2="56" className="stroke-cyan-600" />
     {/* Discos */}
-    <rect x="6" y="48" width="20" height="6" rx="3" className="fill-cyan-500/80 stroke-cyan-200 group-hover:animate-[hanoi-move-base_1.5s_ease-in-out_infinite]" />
-    <rect x="8" y="40" width="16" height="6" rx="3" className="fill-cyan-400/80 stroke-cyan-100 group-hover:animate-[hanoi-move-mid_1.5s_ease-in-out_infinite_0.2s]" />
-    <rect x="10" y="32" width="12" height="6" rx="3" className="fill-cyan-300/80 stroke-white group-hover:animate-[hanoi-move-top_1.5s_ease-in-out_infinite_0.4s]" />
+    <rect x="6" y="48" width="20" height="6" rx="3" className="fill-cyan-500/80 stroke-cyan-200 group-hover:animate-[hanoi-move-base_2.5s_ease-in-out_infinite]" />
+    <rect x="8" y="40" width="16" height="6" rx="3" className="fill-cyan-400/80 stroke-cyan-100 group-hover:animate-[hanoi-move-mid_2.5s_ease-in-out_infinite]" />
+    <rect x="10" y="32" width="12" height="6" rx="3" className="fill-cyan-300/80 stroke-white group-hover:animate-[hanoi-move-top_2.5s_ease-in-out_infinite]" />
   </svg>
 );
 
 const FrogIcon = () => (
   <svg viewBox="0 0 64 64" className="w-full h-full stroke-emerald-400 fill-emerald-500/40 stroke-2 overflow-visible drop-shadow-[0_0_8px_rgba(52,211,153,0.8)]">
     {/* Rama / Nenúfar */}
-    <ellipse cx="32" cy="56" rx="24" ry="4" className="fill-emerald-900/60 stroke-emerald-600" />
-    <path d="M 16 56 Q 8 50 12 44" className="stroke-emerald-600 fill-transparent" />
-    <path d="M 48 56 Q 56 50 52 44" className="stroke-emerald-600 fill-transparent" />
-    {/* Rana */}
-    <g className="group-hover:animate-[frog-jump_1s_ease-in-out_infinite]">
-      {/* Patas */}
-      <path d="M 20 46 Q 12 40 14 54" className="fill-transparent stroke-emerald-300" />
-      <path d="M 44 46 Q 52 40 50 54" className="fill-transparent stroke-emerald-300" />
+    <path d="M 32 60 C 15 60 8 55 8 52 C 8 49 15 44 32 44 C 40 44 48 46 52 48 L 32 52 L 56 52 C 56 55 49 60 32 60 Z" className="fill-emerald-900/80 stroke-emerald-500 stroke-[1.5px]" />
+    {/* Nenúfar lines */}
+    <path d="M 32 52 L 20 46 M 32 52 L 14 52 M 32 52 L 44 46" className="stroke-emerald-700/50" />
+    
+    {/* Rana Detallada */}
+    <g className="group-hover:animate-[frog-jump_1.5s_ease-in-out_infinite] transform-origin-bottom">
+      {/* Patas traseras con ancas grandes */}
+      <path d="M 24 44 C 12 36 10 48 14 52 C 16 54 22 52 26 50" className="fill-emerald-600/90 stroke-emerald-300" />
+      <path d="M 40 44 C 52 36 54 48 50 52 C 48 54 42 52 38 50" className="fill-emerald-600/90 stroke-emerald-300" />
+      {/* Dedos traseros */}
+      <path d="M 14 52 L 10 54 M 14 52 L 14 56 M 50 52 L 54 54 M 50 52 L 50 56" className="stroke-emerald-400 stroke-1" />
       {/* Cuerpo */}
-      <ellipse cx="32" cy="44" rx="14" ry="10" className="fill-emerald-500/80 stroke-emerald-200" />
+      <path d="M 32 32 C 20 32 20 48 32 50 C 44 48 44 32 32 32 Z" className="fill-emerald-500 stroke-emerald-200" />
       {/* Ojos */}
-      <circle cx="26" cy="36" r="4" className="fill-emerald-900 stroke-emerald-300" />
-      <circle cx="38" cy="36" r="4" className="fill-emerald-900 stroke-emerald-300" />
-      <circle cx="26" cy="36" r="1.5" className="fill-emerald-300 stroke-none" />
-      <circle cx="38" cy="36" r="1.5" className="fill-emerald-300 stroke-none" />
+      <circle cx="26" cy="30" r="5" className="fill-emerald-600 stroke-emerald-300" />
+      <circle cx="38" cy="30" r="5" className="fill-emerald-600 stroke-emerald-300" />
+      <circle cx="26" cy="29" r="2" className="fill-white stroke-none" />
+      <circle cx="38" cy="29" r="2" className="fill-white stroke-none" />
+      <circle cx="27" cy="28" r="0.8" className="fill-emerald-900 stroke-none" />
+      <circle cx="39" cy="28" r="0.8" className="fill-emerald-900 stroke-none" />
+      {/* Patas delanteras */}
+      <path d="M 28 46 L 24 52 L 22 54 M 24 52 L 26 55 M 36 46 L 40 52 L 42 54 M 40 52 L 38 55" className="stroke-emerald-300 stroke-[2px] fill-transparent" />
+      {/* Sonrisa natural y manchas */}
+      <path d="M 27 38 Q 32 42 37 38" className="stroke-emerald-900/60 fill-transparent stroke-[1.5px]" />
+      <circle cx="32" cy="42" r="1.5" className="fill-emerald-400/50 stroke-none" />
+      <circle cx="28" cy="45" r="1" className="fill-emerald-400/50 stroke-none" />
+      <circle cx="36" cy="44" r="1.2" className="fill-emerald-400/50 stroke-none" />
     </g>
   </svg>
 );
 
 const QueenIcon = () => (
   <svg viewBox="0 0 64 64" className="w-full h-full stroke-purple-400 fill-purple-500/40 stroke-2 overflow-visible drop-shadow-[0_0_8px_rgba(168,85,247,0.8)]">
-    <g className="origin-bottom group-hover:animate-[queen-wobble_1s_ease-in-out_infinite]">
+    <g className="origin-bottom group-hover:animate-[queen-slide_2.5s_ease-in-out_infinite]">
       {/* Base */}
-      <path d="M 20 56 L 44 56 L 40 50 L 24 50 Z" className="fill-purple-600/80 stroke-purple-300" />
-      {/* Cuerpo */}
-      <path d="M 26 50 C 26 30 20 20 20 20 C 28 28 32 28 32 16 C 32 28 36 28 44 20 C 44 20 38 30 38 50 Z" className="fill-purple-500/60 stroke-purple-300" />
-      {/* Joyas */}
-      <circle cx="20" cy="18" r="2.5" className="fill-purple-200 stroke-purple-100" />
-      <circle cx="32" cy="14" r="2.5" className="fill-purple-200 stroke-purple-100" />
-      <circle cx="44" cy="18" r="2.5" className="fill-purple-200 stroke-purple-100" />
+      <path d="M 18 56 L 46 56 L 42 48 L 22 48 Z" className="fill-purple-600/90 stroke-purple-300" />
+      <path d="M 24 48 C 24 40 30 36 32 30 C 34 36 40 40 40 48 Z" className="fill-purple-500/80 stroke-purple-300" />
+      {/* Crown */}
+      <path d="M 14 36 L 22 40 L 22 24 L 28 38 L 32 18 L 36 38 L 42 24 L 42 40 L 50 36 L 44 48 L 20 48 Z" className="fill-purple-500/70 stroke-purple-200 stroke-linejoin-round" />
+      {/* Balls */}
+      <circle cx="14" cy="34" r="2" className="fill-purple-100 stroke-none" />
+      <circle cx="22" cy="22" r="2" className="fill-purple-100 stroke-none" />
+      <circle cx="32" cy="16" r="2.5" className="fill-purple-100 stroke-none" />
+      <circle cx="42" cy="22" r="2" className="fill-purple-100 stroke-none" />
+      <circle cx="50" cy="34" r="2" className="fill-purple-100 stroke-none" />
     </g>
   </svg>
 );
@@ -58,11 +73,21 @@ const QuickSortIcon = () => (
   <svg viewBox="0 0 64 64" className="w-full h-full stroke-amber-400 fill-amber-500/50 stroke-2 overflow-visible drop-shadow-[0_0_8px_rgba(251,191,36,0.8)]">
     {/* Base line */}
     <line x1="8" y1="56" x2="56" y2="56" className="stroke-[3px] stroke-amber-600" />
-    {/* Barras animadas */}
-    <rect x="12" y="32" width="6" height="24" className="fill-amber-300/80 stroke-amber-100 group-hover:animate-[bar-1_1.2s_ease-in-out_infinite]" />
-    <rect x="22" y="16" width="6" height="40" className="fill-amber-400/80 stroke-amber-200 group-hover:animate-[bar-2_1.2s_ease-in-out_infinite]" />
-    <rect x="32" y="40" width="6" height="16" className="fill-amber-500/80 stroke-amber-300 group-hover:animate-[bar-3_1.2s_ease-in-out_infinite]" />
-    <rect x="42" y="24" width="6" height="32" className="fill-amber-600/80 stroke-amber-400 group-hover:animate-[bar-4_1.2s_ease-in-out_infinite]" />
+    {/* Barras animadas con swap horizontal */}
+    <rect x="12" y="32" width="6" height="24" className="fill-amber-300/80 stroke-amber-100 group-hover:animate-[bar-1_2s_ease-in-out_infinite]" />
+    <rect x="22" y="16" width="6" height="40" className="fill-amber-400/80 stroke-amber-200 group-hover:animate-[bar-2_2s_ease-in-out_infinite]" />
+    <rect x="32" y="40" width="6" height="16" className="fill-amber-500/80 stroke-amber-300 group-hover:animate-[bar-3_2s_ease-in-out_infinite]" />
+    <rect x="42" y="24" width="6" height="32" className="fill-amber-600/80 stroke-amber-400 group-hover:animate-[bar-4_2s_ease-in-out_infinite]" />
+    
+    {/* Rayo o chispa de intercambio */}
+    <path d="M 15 28 Q 20 16 25 28" className="stroke-white fill-transparent opacity-0 drop-shadow-[0_0_4px_white] group-hover:animate-[swap-spark_2s_ease-in-out_infinite]" markerEnd="url(#spark-arrow)" />
+    <path d="M 35 40 Q 40 28 45 40" className="stroke-white fill-transparent opacity-0 drop-shadow-[0_0_4px_white] group-hover:animate-[swap-spark-2_2s_ease-in-out_infinite]" markerEnd="url(#spark-arrow)" />
+    
+    <defs>
+      <marker id="spark-arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+        <polygon points="0 0, 6 3, 0 6" fill="white" />
+      </marker>
+    </defs>
   </svg>
 );
 
@@ -233,45 +258,68 @@ export const RecursiveMenuPanel: React.FC<RecursiveMenuPanelProps> = ({
 
           /* Animaciones de Hover para SVGs */
           @keyframes hanoi-move-base {
-            0%, 100% { transform: translate(0, 0); }
-            50% { transform: translate(32px, 0); }
+            0%, 5% { transform: translate(0, 0); }
+            10% { transform: translate(0, -16px); }
+            15% { transform: translate(32px, -16px); }
+            20%, 95% { transform: translate(32px, 0); }
+            100% { transform: translate(0, 0); }
           }
           @keyframes hanoi-move-mid {
-            0%, 100% { transform: translate(0, 0); }
-            50% { transform: translate(32px, 0); }
+            0%, 25% { transform: translate(0, 0); }
+            30% { transform: translate(0, -24px); }
+            35% { transform: translate(32px, -24px); }
+            40%, 95% { transform: translate(32px, 0); }
+            100% { transform: translate(0, 0); }
           }
           @keyframes hanoi-move-top {
-            0%, 100% { transform: translate(0, 0); }
-            50% { transform: translate(16px, 16px); }
+            0%, 45% { transform: translate(0, 0); }
+            50% { transform: translate(0, -32px); }
+            55% { transform: translate(32px, -32px); }
+            60%, 95% { transform: translate(32px, 0); }
+            100% { transform: translate(0, 0); }
           }
 
           @keyframes frog-jump {
             0%, 100% { transform: translateY(0) scale(1); }
-            40% { transform: translateY(-16px) scale(1.05) rotate(5deg); }
-            60% { transform: translateY(-16px) scale(1.05) rotate(-5deg); }
+            20% { transform: translateY(6px) scale(1.1, 0.8); }
+            50% { transform: translateY(-32px) scale(0.9, 1.15); }
+            70% { transform: translateY(-32px) scale(1.05, 1.05); }
+            90% { transform: translateY(0) scale(1.15, 0.8); }
           }
 
-          @keyframes queen-wobble {
-            0%, 100% { transform: rotate(0deg); }
-            25% { transform: rotate(-8deg); }
-            75% { transform: rotate(8deg); }
+          @keyframes queen-slide {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-14px) translateY(-4px) rotate(-3deg); }
+            40% { transform: translateX(-14px) translateY(0) rotate(0deg); }
+            60% { transform: translateX(14px) translateY(-4px) rotate(3deg); }
+            80% { transform: translateX(14px) translateY(0) rotate(0deg); }
           }
 
           @keyframes bar-1 {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-8px); height: 32px; }
+            0%, 100% { transform: translateX(0); }
+            40%, 60% { transform: translateX(10px); }
           }
           @keyframes bar-2 {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(16px); height: 24px; }
+            0%, 100% { transform: translateX(0); }
+            40%, 60% { transform: translateX(-10px); }
           }
           @keyframes bar-3 {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-24px); height: 40px; }
+            0%, 100% { transform: translateX(0); }
+            60%, 80% { transform: translateX(10px); }
           }
           @keyframes bar-4 {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(16px); height: 16px; }
+            0%, 100% { transform: translateX(0); }
+            60%, 80% { transform: translateX(-10px); }
+          }
+          @keyframes swap-spark {
+            0%, 35% { opacity: 0; stroke-dasharray: 0 20; }
+            40% { opacity: 1; stroke-dasharray: 20 0; }
+            45%, 100% { opacity: 0; stroke-dasharray: 0 20; }
+          }
+          @keyframes swap-spark-2 {
+            0%, 55% { opacity: 0; stroke-dasharray: 0 20; }
+            60% { opacity: 1; stroke-dasharray: 20 0; }
+            65%, 100% { opacity: 0; stroke-dasharray: 0 20; }
           }
         `}
       </style>

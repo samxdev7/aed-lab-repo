@@ -57,86 +57,152 @@ export function useSoundEffects() {
     osc.stop(ctx.currentTime + 0.15);
   }, []);
 
-  // Hanoi: clicky wooden sound
+  // Hanoi: 3 sharp wooden clacks
   const playDiskSound = useCallback(() => {
     initAudio();
     const ctx = audioContextRef.current;
     if (!ctx) return;
     if (ctx.state === 'suspended') ctx.resume();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'square';
-    osc.frequency.setValueAtTime(800, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + 0.05);
-    gain.gain.setValueAtTime(0, ctx.currentTime);
-    gain.gain.linearRampToValueAtTime(0.1, ctx.currentTime + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.05);
+    
+    const clack = (time: number, freq: number) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, time);
+      osc.frequency.exponentialRampToValueAtTime(100, time + 0.1);
+      gain.gain.setValueAtTime(0, time);
+      gain.gain.linearRampToValueAtTime(0.3, time + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(time);
+      osc.stop(time + 0.1);
+    };
+
+    clack(ctx.currentTime, 900);
+    clack(ctx.currentTime + 0.15, 1200);
+    clack(ctx.currentTime + 0.3, 700);
   }, []);
 
-  // Frog: Ribbit/Boing sound
+  // Frog: Advanced natural pond frog synth (Bandpass sweep + LFO pulse)
   const playFrogSound = useCallback(() => {
     initAudio();
     const ctx = audioContextRef.current;
     if (!ctx) return;
     if (ctx.state === 'suspended') ctx.resume();
+    
     const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
     osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(150, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(250, ctx.currentTime + 0.1);
-    osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.2);
+    osc.frequency.setValueAtTime(60, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.1);
+    osc.frequency.exponentialRampToValueAtTime(60, ctx.currentTime + 0.2);
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(300, ctx.currentTime);
+    filter.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.1);
+    filter.frequency.exponentialRampToValueAtTime(300, ctx.currentTime + 0.25);
+    filter.Q.value = 8;
+
+    const lfo = ctx.createOscillator();
+    lfo.type = 'square';
+    lfo.frequency.value = 35;
+    
+    const lfoGain = ctx.createGain();
+    lfo.connect(lfoGain.gain);
+
+    const gain = ctx.createGain();
     gain.gain.setValueAtTime(0, ctx.currentTime);
-    gain.gain.linearRampToValueAtTime(0.1, ctx.currentTime + 0.1);
-    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.2);
-    osc.connect(gain);
+    gain.gain.linearRampToValueAtTime(1, ctx.currentTime + 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+
+    osc.connect(filter);
+    filter.connect(lfoGain);
+    lfoGain.connect(gain);
     gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.2);
+
+    osc.start(ctx.currentTime);
+    lfo.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.25);
+    lfo.stop(ctx.currentTime + 0.25);
   }, []);
 
-  // Chess: Wooden clack
+  // Chess Queen: Heavy sliding noise + layered marble/wood clack
   const playChessSound = useCallback(() => {
     initAudio();
     const ctx = audioContextRef.current;
     if (!ctx) return;
     if (ctx.state === 'suspended') ctx.resume();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(400, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.1);
-    gain.gain.setValueAtTime(0, ctx.currentTime);
-    gain.gain.linearRampToValueAtTime(0.15, ctx.currentTime + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.1);
+    
+    // Friction slide
+    const slideOsc = ctx.createOscillator();
+    const slideGain = ctx.createGain();
+    slideOsc.type = 'sawtooth';
+    slideOsc.frequency.setValueAtTime(80, ctx.currentTime);
+    slideOsc.frequency.linearRampToValueAtTime(30, ctx.currentTime + 0.2);
+    slideGain.gain.setValueAtTime(0, ctx.currentTime);
+    slideGain.gain.linearRampToValueAtTime(0.08, ctx.currentTime + 0.05);
+    slideGain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.2);
+    slideOsc.connect(slideGain);
+    slideGain.connect(ctx.destination);
+    slideOsc.start();
+    slideOsc.stop(ctx.currentTime + 0.2);
+
+    // Heavy Thud (Wood)
+    const clackOsc = ctx.createOscillator();
+    const clackGain = ctx.createGain();
+    clackOsc.type = 'square';
+    clackOsc.frequency.setValueAtTime(150, ctx.currentTime + 0.15);
+    clackOsc.frequency.exponentialRampToValueAtTime(20, ctx.currentTime + 0.25);
+    clackGain.gain.setValueAtTime(0, ctx.currentTime + 0.15);
+    clackGain.gain.linearRampToValueAtTime(0.4, ctx.currentTime + 0.16);
+    clackGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+    
+    // Sharp Clack (Marble/Glass tink)
+    const tinkOsc = ctx.createOscillator();
+    const tinkGain = ctx.createGain();
+    tinkOsc.type = 'sine';
+    tinkOsc.frequency.setValueAtTime(2000, ctx.currentTime + 0.15);
+    tinkOsc.frequency.exponentialRampToValueAtTime(500, ctx.currentTime + 0.2);
+    tinkGain.gain.setValueAtTime(0, ctx.currentTime + 0.15);
+    tinkGain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.16);
+    tinkGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+
+    clackOsc.connect(clackGain);
+    tinkOsc.connect(tinkGain);
+    clackGain.connect(ctx.destination);
+    tinkGain.connect(ctx.destination);
+    
+    clackOsc.start(ctx.currentTime + 0.15);
+    tinkOsc.start(ctx.currentTime + 0.15);
+    clackOsc.stop(ctx.currentTime + 0.35);
+    tinkOsc.stop(ctx.currentTime + 0.25);
   }, []);
 
-  // Bars: sweeping up and down
+  // QuickSort: Fast fluid blips (arpeggio style)
   const playBarsSound = useCallback(() => {
     initAudio();
     const ctx = audioContextRef.current;
     if (!ctx) return;
     if (ctx.state === 'suspended') ctx.resume();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(300, ctx.currentTime);
-    osc.frequency.linearRampToValueAtTime(600, ctx.currentTime + 0.2);
-    osc.frequency.linearRampToValueAtTime(200, ctx.currentTime + 0.4);
-    gain.gain.setValueAtTime(0, ctx.currentTime);
-    gain.gain.linearRampToValueAtTime(0.05, ctx.currentTime + 0.2);
-    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.4);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.4);
+    
+    const freqs = [400, 600, 800, 1200];
+    freqs.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      
+      const startTime = ctx.currentTime + (i * 0.08);
+      gain.gain.setValueAtTime(0, startTime);
+      gain.gain.linearRampToValueAtTime(0.05, startTime + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.15);
+      
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(startTime);
+      osc.stop(startTime + 0.15);
+    });
   }, []);
 
   return { playHoverSound, playClickSound, playDiskSound, playFrogSound, playChessSound, playBarsSound };
