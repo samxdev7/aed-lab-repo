@@ -4,12 +4,14 @@ interface ArrayMenuPanelProps {
   onBack: () => void;
   onSelectOrdered: () => void;
   onSelectUnordered: () => void;
+  onSelectQueens: () => void;
 }
 
 export const ArrayMenuPanel: React.FC<ArrayMenuPanelProps> = ({
   onBack,
   onSelectOrdered,
   onSelectUnordered,
+  onSelectQueens,
 }) => {
   return (
     <div className="relative flex flex-col justify-between min-h-screen bg-[#0B0D1B] text-white p-8 md:p-12 overflow-hidden select-none">
@@ -49,39 +51,55 @@ export const ArrayMenuPanel: React.FC<ArrayMenuPanelProps> = ({
       </header>
 
       {/* Tarjetas Centradas */}
-      <main className="flex-1 flex flex-col md:flex-row items-center justify-center gap-8 max-w-4xl mx-auto w-full my-auto py-6 z-10 px-4">
+      <main className="flex-1 flex flex-col md:flex-row items-center justify-center gap-6 max-w-6xl mx-auto w-full my-auto py-6 z-10 px-4">
         {/* Tarjeta Desordenados */}
         <button
           onClick={onSelectUnordered}
-          className="relative w-full md:w-1/2 p-10 bg-[#121829] rounded-3xl border-2 border-cyan-500/60 shadow-[0_0_30px_rgba(6,182,212,0.35)] hover:shadow-[0_0_50px_rgba(6,182,212,0.6)] hover:border-cyan-400 transition-all duration-300 transform hover:-translate-y-2 flex flex-col items-center justify-center cursor-pointer group"
+          className="relative w-full md:w-1/3 p-8 bg-[#121829] rounded-3xl border-2 border-cyan-500/60 shadow-[0_0_30px_rgba(6,182,212,0.35)] hover:shadow-[0_0_50px_rgba(6,182,212,0.6)] hover:border-cyan-400 transition-all duration-300 transform hover:-translate-y-2 flex flex-col items-center justify-center cursor-pointer group"
         >
           <div className="absolute top-5 right-5 w-4 h-4 bg-cyan-400 rounded-full shadow-[0_0_15px_#22D3EE]"></div>
-          <div className="w-20 h-20 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center mb-6 text-cyan-400 group-hover:scale-110 group-hover:bg-cyan-500/20 transition-all">
-            <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="w-16 h-16 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center mb-4 text-cyan-400 group-hover:scale-110 group-hover:bg-cyan-500/20 transition-all">
+            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5" />
             </svg>
           </div>
-          <h2 className="text-3xl font-black text-cyan-200 tracking-wider">
+          <h2 className="text-2xl font-black text-cyan-200 tracking-wider">
             Búsqueda
           </h2>
         </button>
 
-      {/* Tarjeta Ordenados */}
-          <button
-            onClick={onSelectOrdered}
-            className="relative w-full md:w-1/2 p-10 bg-[#121829] rounded-3xl border-2 border-purple-500/60 shadow-[0_0_30px_rgba(168,85,247,0.35)] hover:shadow-[0_0_50px_rgba(168,85,247,0.6)] hover:border-purple-400 transition-all duration-300 transform hover:-translate-y-2 flex flex-col items-center justify-center cursor-pointer group"
-          >
-            <div className="absolute top-5 right-5 w-4 h-4 bg-purple-500 rounded-full shadow-[0_0_15px_#A855F7]"></div>
-            <div className="w-20 h-20 rounded-2xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center mb-6 text-purple-400 group-hover:scale-110 group-hover:bg-purple-500/20 transition-all">
-              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3 4h13M3 8h10M3 12h7m4 0l4-4m0 0l4 4m-4-4v12" />
-              </svg>
-            </div>
-            <h2 className="text-3xl font-black text-purple-200 tracking-wider">
-              Ordenamiento
-            </h2>
-          </button>
-        </main>
+        {/* Tarjeta Ordenados */}
+        <button
+          onClick={onSelectOrdered}
+          className="relative w-full md:w-1/3 p-8 bg-[#121829] rounded-3xl border-2 border-purple-500/60 shadow-[0_0_30px_rgba(168,85,247,0.35)] hover:shadow-[0_0_50px_rgba(168,85,247,0.6)] hover:border-purple-400 transition-all duration-300 transform hover:-translate-y-2 flex flex-col items-center justify-center cursor-pointer group"
+        >
+          <div className="absolute top-5 right-5 w-4 h-4 bg-purple-500 rounded-full shadow-[0_0_15px_#A855F7]"></div>
+          <div className="w-16 h-16 rounded-2xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center mb-4 text-purple-400 group-hover:scale-110 group-hover:bg-purple-500/20 transition-all">
+            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3 4h13M3 8h10M3 12h7m4 0l4-4m0 0l4 4m-4-4v12" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-black text-purple-200 tracking-wider">
+            Ordenamiento
+          </h2>
+        </button>
+
+        {/* Tarjeta Reinas */}
+        <button
+          onClick={onSelectQueens}
+          className="relative w-full md:w-1/3 p-8 bg-[#121829] rounded-3xl border-2 border-rose-500/60 shadow-[0_0_30px_rgba(244,63,94,0.35)] hover:shadow-[0_0_50px_rgba(244,63,94,0.6)] hover:border-rose-400 transition-all duration-300 transform hover:-translate-y-2 flex flex-col items-center justify-center cursor-pointer group"
+        >
+          <div className="absolute top-5 right-5 w-4 h-4 bg-rose-500 rounded-full shadow-[0_0_15px_#F43F5E]"></div>
+          <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center mb-4 text-rose-400 group-hover:scale-110 group-hover:bg-rose-500/20 transition-all">
+            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 2l3 5h5l-4 4 2 6-6-4-6 4 2-6-4-4h5z" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-black text-rose-200 tracking-wider">
+            8 Reinas
+          </h2>
+        </button>
+      </main>
 
 
       {/* Pie de página con botón Atrás */}

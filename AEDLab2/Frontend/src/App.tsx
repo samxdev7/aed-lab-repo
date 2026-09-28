@@ -9,6 +9,7 @@ import { BubbleSortSignalPanel } from './BubbleSortSignalPanel';
 import { InsertionSortPanel } from './InsertionSortPanel';
 import { SelectionSortPanel } from './SelectionSortPanel';
 import { ShellSortPanel } from './ShellSortPanel';
+import { QueensPanelV2 } from './QueensPanelV2';
 import { NotificationProvider } from './NotificationContext';
 
 export default function App() {
@@ -23,6 +24,7 @@ export default function App() {
     | 'baraja'
     | 'seleccion'
     | 'shell'
+    | 'queens'
   >('presentation');
 
   return (
@@ -37,6 +39,7 @@ export default function App() {
             onBack={() => setCurrentScreen('presentation')}
             onSelectOrdered={() => setCurrentScreen('ordered')}
             onSelectUnordered={() => setCurrentScreen('binarySearch')}
+            onSelectQueens={() => setCurrentScreen('queens')}
           />
         )}
 
@@ -60,51 +63,44 @@ export default function App() {
                 setCurrentScreen('seleccion');
               } else if (algorithmId === 'shell') {
                 setCurrentScreen('shell');
+              } else if (algorithmId === 'queens' || algorithmId === 'reinas' || algorithmId === '8queens') {
+                setCurrentScreen('queens');
               }
             }}
           />
         )}
 
         {currentScreen === 'sacudida' && (
-          <ShakerSortPanel
-            onBack={() => setCurrentScreen('ordered')}
-          />
+          <ShakerSortPanel onBack={() => setCurrentScreen('ordered')} />
         )}
 
         {currentScreen === 'burbuja' && (
-          <BubbleSortPanel
-            onBack={() => setCurrentScreen('ordered')}
-          />
+          <BubbleSortPanel onBack={() => setCurrentScreen('ordered')} />
         )}
 
         {currentScreen === 'burbujaSenal' && (
-          <BubbleSortSignalPanel
-            onBack={() => setCurrentScreen('ordered')}
-          />
+          <BubbleSortSignalPanel onBack={() => setCurrentScreen('ordered')} />
         )}
 
         {currentScreen === 'baraja' && (
-          <InsertionSortPanel
-            onBack={() => setCurrentScreen('ordered')}
-          />
+          <InsertionSortPanel onBack={() => setCurrentScreen('ordered')} />
         )}
 
         {currentScreen === 'seleccion' && (
-          <SelectionSortPanel
-            onBack={() => setCurrentScreen('ordered')}
-          />
+          <SelectionSortPanel onBack={() => setCurrentScreen('ordered')} />
         )}
 
         {currentScreen === 'shell' && (
-          <ShellSortPanel
-            onBack={() => setCurrentScreen('ordered')}
-          />
+          <ShellSortPanel onBack={() => setCurrentScreen('ordered')} />
         )}
 
         {currentScreen === 'binarySearch' && (
-          <BinarySearchPanel
-            onBack={() => setCurrentScreen('menu')}
-          />
+          <BinarySearchPanel onBack={() => setCurrentScreen('menu')} />
+        )}
+
+        {/* PANEL CONECTADO: Reemplazado el <div> de prueba por el componente animado */}
+        {currentScreen === 'queens' && (
+          <QueensPanelV2 onBack={() => setCurrentScreen('menu')} />
         )}
 
       </main>
