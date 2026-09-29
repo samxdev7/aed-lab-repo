@@ -139,5 +139,43 @@ export function useSoundEffects() {
     osc.stop(ctx.currentTime + 0.4);
   }, []);
 
-  return { playHoverSound, playClickSound, playDiskSound, playFrogSound, playChessSound, playBarsSound };
+  // QuickSort & General: Parametric synth beep/tone using the shared AudioContext
+  const playTone = useCallback((
+    freq: number, 
+    type: OscillatorType = 'sine', 
+    duration: number = 0.1, 
+    vol: number = 0.1
+  ) => {
+    initAudio();
+    const ctx = audioContextRef.current;
+    if (!ctx) return;
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
+
+    try {
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = type;
+      osc.frequency.setValueAtTime(Math.max(20, freq), now);
+
+      const safeVol = Math.max(0.0001, vol);
+      const safeDuration = Math.max(0.02, duration);
+
+      gain.gain.setValueAtTime(safeVol, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + safeDuration);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + safeDuration);
+    } catch (e) {
+      console.warn("Audio playback issue:", e);
+    }
+  }, []);
+
+  return { playHoverSound, playClickSound, playDiskSound, playFrogSound, playChessSound, playBarsSound, playTone };
 }

@@ -1,29 +1,50 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSoundEffects } from './useSoundEffects';
 import { useNotification } from './NotificationContext';
+import { API_KEY, apiRequest } from './HTTPMethods';
 
 interface QuickSortPanelProps {
   onBack?: () => void;
 }
 
-type SortStep = {
-  array: { id: number, value: number }[];
+interface BackendSwapLine {
+  from: number;
+  to: number;
+}
+
+interface BackendSortStep {
+  array: number[];
   pivot: number | null;
   i: number | null;
   j: number | null;
   elevated: number[];
-  swapLine: { from: number; to: number } | null;
+  swapLine: BackendSwapLine | null;
   phaseText: string;
   action: 'compare' | 'found' | 'swap' | 'done' | 'finish' | 'new_partition';
   range: [number, number] | null;
-};
+}
+
+interface QuickSortResponse {
+  sortedArray: number[];
+  steps: BackendSortStep[];
+  message: string;
+}
+
+interface CardItem {
+  id: number;
+  value: number;
+  position: number;
+}
 
 export const QuickSortPanel: React.FC<QuickSortPanelProps> = ({ onBack }) => {
   const initialValues = [67, 9, 7, 12, 15, 6, 3, 1, 4, 2];
-  const initialArray = initialValues.map((v, i) => ({ id: i, value: v }));
+  const initialCards: CardItem[] = initialValues.map((v, i) => ({ id: i, value: v, position: i }));
   
   // States
-  const [array, setArray] = useState(initialArray);
+  const [cards, setCards] = useState<CardItem[]>(initialCards);
+  const [swappingPair, setSwappingPair] = useState<{ upperId: number; lowerId: number } | null>(null);
+  const [celebratedCount, setCelebratedCount] = useState<number>(0);
+  const [celebratingIndex, setCelebratingIndex] = useState<number | null>(null);
   const [pivotIndex, setPivotIndex] = useState<number | null>(null);
   const [iPointer, setIPointer] = useState<number | null>(null); 
   const [jPointer, setJPointer] = useState<number | null>(null);
@@ -34,12 +55,23 @@ export const QuickSortPanel: React.FC<QuickSortPanelProps> = ({ onBack }) => {
   const [isAnimating, setIsAnimating] = useState(false);
   const [isSorted, setIsSorted] = useState(false);
 
+  // Detección de elementos repetidos
+  const duplicateValues = useMemo(() => {
+    const counts = new Map<number, number>();
+    cards.forEach(c => counts.set(c.value, (counts.get(c.value) || 0) + 1));
+    const duplicates = new Set<number>();
+    counts.forEach((count, val) => {
+      if (count > 1) duplicates.add(val);
+    });
+    return duplicates;
+  }, [cards]);
+
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const isMounted = useRef(true);
   const cancelAnim = useRef(false);
-  const userArray = useRef([...initialArray]);
+  const userCards = useRef<CardItem[]>([...initialCards]);
 
-  const { playClickSound, playHoverSound } = useSoundEffects();
+  const { playClickSound, playHoverSound, playTone } = useSoundEffects();
   const { showNotification } = useNotification();
 
   useEffect(() => {
@@ -50,22 +82,9 @@ export const QuickSortPanel: React.FC<QuickSortPanelProps> = ({ onBack }) => {
     };
   }, []);
 
-  const playBeep = (freq: number, type: 'sine' | 'triangle' | 'square' | 'sawtooth' = 'sine', duration: number = 0.1, vol = 0.1) => {
+  const playBeep = (freq: number, type: OscillatorType = 'sine', duration: number = 0.1, vol = 0.1) => {
     if (!isMounted.current) return;
-    try {
-      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-      const ctx = new AudioContext();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = type;
-      osc.frequency.setValueAtTime(freq, ctx.currentTime);
-      gain.gain.setValueAtTime(vol, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + duration);
-    } catch (e) {}
+    playTone(freq, type, duration, vol);
   };
 
   const playFoundSound = () => {
@@ -82,83 +101,179 @@ export const QuickSortPanel: React.FC<QuickSortPanelProps> = ({ onBack }) => {
   const handleInputChange = (id: number, valStr: string) => {
     let numStr = valStr.replace(/\D/g, '').substring(0, 3);
     let num = numStr === '' ? 0 : parseInt(numStr);
-    setArray(prev => {
-      const next = prev.map(a => a.id === id ? { ...a, value: num } : a);
-      userArray.current = [...next]; // Guardamos el arreglo base del usuario
+    setCards(prev => {
+      const next = prev.map(c => c.id === id ? { ...c, value: num } : c);
+      userCards.current = [...next];
       return next;
     });
   };
 
   const handleStartSimulation = async () => {
-    if (isAnimating) return;
-    if (isSorted) {
-      showNotification('info', 'Arreglo Ordenado', 'El arreglo ya está ordenado. Por favor, haz clic en Reiniciar.');
-      playClickSound();
-      return;
-    }
-    
-    setIsAnimating(true);
-    cancelAnim.current = false;
-    playClickSound();
+    try {
+      if (isAnimating) return;
+      if (isSorted) {
+        showNotification('info', 'Arreglo Ordenado', 'El arreglo ya está ordenado. Por favor, haz clic en Reiniciar.');
+        playClickSound();
+        return;
+      }
 
-    // =====================================================================
-    // Aquí se debe realizar la petición (fetch/axios) a la API en Java.
-    // 1. Enviar 'array.map(a => a.value)' al endpoint.
-    // 2. Recibir la respuesta con el arreglo de pasos (steps).
-    // =====================================================================
-    
-    // Simulación temporal de la respuesta de la API para probar la UI
-    const steps: SortStep[] = [
-      { array: [...array], pivot: null, i: null, j: null, elevated: [], swapLine: null, phaseText: 'ESPERANDO RESPUESTA DE LA API...', action: 'compare', range: null },
-      { array: [...array], pivot: null, i: null, j: null, elevated: [], swapLine: null, phaseText: '¡ORDENAMIENTO COMPLETADO!', action: 'finish', range: null }
-    ];
+      if (cards.length !== 10 || cards.some(c => isNaN(c.value))) {
+        showNotification('warning', 'Entrada inválida', 'El arreglo debe tener exactamente 10 números válidos.');
+        return;
+      }
 
-    for (let i = 0; i < steps.length; i++) {
-      if (!isMounted.current || cancelAnim.current) break;
-      const step = steps[i];
+      // Validar que no existan elementos duplicados
+      if (duplicateValues.size > 0) {
+        const dupList = Array.from(duplicateValues).join(', ');
+        showNotification('warning', 'Elementos duplicados', `El arreglo contiene elementos repetidos: [${dupList}]. Todos los números deben ser únicos.`);
+        playBeep(220, 'sawtooth', 0.25, 0.2);
+        return;
+      }
       
-      setArray(step.array);
-      setPivotIndex(step.pivot);
-      setIPointer(step.i);
-      setJPointer(step.j);
-      setElevatedIndices(step.elevated);
-      setSwapLine(step.swapLine);
-      setPhaseText(step.phaseText);
-      setCurrentRange(step.range);
+      setIsAnimating(true);
+      cancelAnim.current = false;
+      setCelebratedCount(0);
+      setCelebratingIndex(null);
+      playClickSound();
 
-      if (step.action === 'new_partition') {
-        playBeep(300, 'sine', 0.1);
-        await delay(900); // Wait a bit longer to clearly show the range change
-      } else if (step.action === 'found') {
-        playFoundSound();
-        await delay(800);
-      } else if (step.action === 'swap') {
-        playSwapSound();
-        await delay(800);
-      } else if (step.action === 'done') {
-        playBeep(300, 'sine', 0.1);
-        await delay(500);
-      } else if (step.action === 'finish') {
-        playFoundSound();
-      } else {
-        const freq = 200 + ((step.array[step.i ?? 0]?.value || 0) * 5); 
-        playBeep(freq, 'sine', 0.05);
-        await delay(600);
+      // Extraer los valores en orden posicional (slot 0..9)
+      const currentValues = Array.from({ length: 10 }, (_, slot) => {
+        const found = cards.find(c => c.position === slot);
+        return found ? found.value : 0;
+      });
+
+      // Petición a la API Spring Boot (Esquema Hoare)
+      const response = await apiRequest<QuickSortResponse>(
+        `${API_KEY}/recursive/quicksort`,
+        {
+          method: "POST",
+          body: { array: currentValues }
+        }
+      );
+
+      if (!response || !response.steps || response.steps.length === 0) {
+        showNotification("error", "Error de Servidor", "No se recibieron los pasos de ordenamiento.");
+        setIsAnimating(false);
+        return;
+      }
+
+      let currentCards = cards.map(c => ({ ...c }));
+
+      // Animación secuencial consumiendo los pasos generados por el backend
+      for (let idx = 0; idx < response.steps.length; idx++) {
+        if (!isMounted.current || cancelAnim.current) break;
+        const step = response.steps[idx];
+        
+        let activeSwapPair: { upperId: number; lowerId: number } | null = null;
+
+        // Mantener la identidad fija de cada tarjeta en el DOM
+        // Solo modificamos su propiedad 'position', disparando una transición horizontal CSS pura (left)
+        if (step.action === 'swap' && step.swapLine) {
+          const { from, to } = step.swapLine;
+          const minSlot = Math.min(from, to);
+          const maxSlot = Math.max(from, to);
+          const cardLeft = currentCards.find(c => c.position === minSlot);
+          const cardRight = currentCards.find(c => c.position === maxSlot);
+
+          if (cardLeft && cardRight) {
+            activeSwapPair = { upperId: cardLeft.id, lowerId: cardRight.id };
+            cardLeft.position = maxSlot;
+            cardRight.position = minSlot;
+          }
+        }
+
+        setCards([...currentCards.map(c => ({ ...c }))]);
+        setSwappingPair(activeSwapPair);
+        setPivotIndex(step.pivot);
+        setIPointer(step.i);
+        setJPointer(step.j);
+        setElevatedIndices(step.elevated || []);
+        setSwapLine(step.swapLine);
+        setPhaseText(step.phaseText);
+        setCurrentRange(step.range);
+
+        if (step.action === 'new_partition') {
+          playBeep(300, 'sine', 0.1);
+          await delay(700);
+        } else if (step.action === 'found') {
+          playFoundSound();
+          await delay(600);
+        } else if (step.action === 'swap') {
+          playSwapSound();
+          await delay(800); // 800ms para permitir que la animación CSS (700ms) complete su trayectoria
+        } else if (step.action === 'done') {
+          playBeep(300, 'sine', 0.08);
+          await delay(450);
+        } else if (step.action === 'finish') {
+          playFoundSound();
+          await delay(300);
+        } else {
+          // Compare step
+          const cardAtI = currentCards.find(c => c.position === step.i);
+          const val = cardAtI ? cardAtI.value : 0;
+          const freq = 200 + (val * 5); 
+          playBeep(freq, 'sine', 0.04);
+          await delay(450);
+        }
+      }
+      
+      if (isMounted.current && !cancelAnim.current) {
+        // Limpiar punteros para dar paso a la ola celebratoria
+        setPivotIndex(null);
+        setIPointer(null);
+        setJPointer(null);
+        setElevatedIndices([]);
+        setSwapLine(null);
+        setPhaseText('¡VERIFICANDO ARREGLO ORDENADO!');
+
+        // Ola celebratoria verde de izquierda a derecha (uno por uno con leve elevación y chispas)
+        for (let c = 0; c < 10; c++) {
+          if (!isMounted.current || cancelAnim.current) break;
+          setCelebratingIndex(c);
+          setCelebratedCount(c + 1);
+
+          // Tono armónico ascendente
+          const freq = 420 + c * 50;
+          playBeep(freq, 'sine', 0.12, 0.12);
+
+          await delay(120);
+        }
+
+        setCelebratingIndex(null);
+        setPhaseText('¡ORDENAMIENTO COMPLETADO CON ÉXITO!');
+
+        // Acorde triunfal
+        playBeep(880, 'triangle', 0.35, 0.15);
+        setTimeout(() => {
+          if (isMounted.current && !cancelAnim.current) {
+            playBeep(1320, 'sine', 0.45, 0.15);
+          }
+        }, 100);
+
+        setIsSorted(true);
+      }
+      if (isMounted.current) {
+        setIsAnimating(false);
+        setSwappingPair(null);
       }
     }
-    
-    if (isMounted.current && !cancelAnim.current) {
-      setIsSorted(true);
-    }
-    if (isMounted.current) {
-      setIsAnimating(false);
+    catch (e) {
+      if (isMounted.current) {
+        setIsAnimating(false);
+        setSwappingPair(null);
+      }
+      const msg = e instanceof Error ? e.message : 'No se pudo completar el ordenamiento.';
+      showNotification("error", "Error de Ordenamiento", msg);
     }
   };
 
   const handleReset = () => {
     playClickSound();
-    cancelAnim.current = true; // Interrupt loop if running
-    setArray([...userArray.current]);
+    cancelAnim.current = true; // Interrumpir bucle
+    setCards(userCards.current.map(c => ({ ...c, position: c.id })));
+    setSwappingPair(null);
+    setCelebratedCount(0);
+    setCelebratingIndex(null);
     setPivotIndex(null);
     setIPointer(null);
     setJPointer(null);
@@ -286,26 +401,18 @@ export const QuickSortPanel: React.FC<QuickSortPanelProps> = ({ onBack }) => {
       {/* BODY - Array Visualizer */}
       <main className="flex-1 flex flex-col items-center justify-center p-4 z-10 w-full relative min-h-0">
         <div className="relative w-full max-w-5xl px-8 py-10 flex flex-col items-center">
-          <div className="relative w-full h-32 md:h-40">
+          <div className="relative w-full h-44 md:h-52">
             
-            {/* Punteros Superiores */}
-            <div className="absolute -top-12 left-0 right-0 h-10 pointer-events-none z-30">
-                <div 
-                  className={`absolute flex flex-col items-center transition-all duration-700 ease-in-out ${pivotIndex !== null ? 'opacity-100 scale-100' : 'opacity-0 scale-50'} ${pivotIndex !== null && elevatedIndices.includes(pivotIndex) ? '-translate-y-8' : ''}`}
-                  style={{ left: `calc(${(pivotIndex ?? 0) * 10}%)`, width: '10%' }}
-                >
-                    <span className="text-cyan-400 font-bold mb-1 tracking-wider text-sm">PIVOTE</span>
-                    <svg className="w-6 h-6 text-cyan-400 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-                    </svg>
-                </div>
-
+            {/* Punteros Superiores: Solo i y j (apuntando hacia abajo) */}
+            <div className="absolute -top-14 left-0 right-0 h-12 pointer-events-none z-30">
                 <div 
                   className={`absolute flex flex-col items-center transition-all duration-700 ease-in-out ${iPointer !== null ? 'opacity-100 scale-100' : 'opacity-0 scale-50'} ${iPointer !== null && elevatedIndices.includes(iPointer) ? '-translate-y-8' : ''}`}
                   style={{ left: `calc(${(iPointer ?? 0) * 10}%)`, width: '10%' }}
                 >
-                    <span className="text-purple-400 font-bold mb-1 tracking-wider text-sm">i</span>
-                    <svg className="w-6 h-6 text-purple-400 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <span className="text-purple-300 font-mono font-black text-xs uppercase px-2 py-0.5 rounded bg-purple-950/90 border border-purple-400/50 shadow-[0_0_10px_rgba(168,85,247,0.4)] mb-1">
+                      i
+                    </span>
+                    <svg className="w-5 h-5 text-purple-400 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
                     </svg>
                 </div>
@@ -314,66 +421,126 @@ export const QuickSortPanel: React.FC<QuickSortPanelProps> = ({ onBack }) => {
                   className={`absolute flex flex-col items-center transition-all duration-700 ease-in-out ${jPointer !== null ? 'opacity-100 scale-100' : 'opacity-0 scale-50'} ${jPointer !== null && elevatedIndices.includes(jPointer) ? '-translate-y-8' : ''}`}
                   style={{ left: `calc(${(jPointer ?? 0) * 10}%)`, width: '10%' }}
                 >
-                    <span className="text-emerald-400 font-bold mb-1 tracking-wider text-sm">j</span>
-                    <svg className="w-6 h-6 text-emerald-400 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <span className="text-emerald-300 font-mono font-black text-xs uppercase px-2 py-0.5 rounded bg-emerald-950/90 border border-emerald-400/50 shadow-[0_0_10px_rgba(52,211,153,0.4)] mb-1">
+                      j
+                    </span>
+                    <svg className="w-5 h-5 text-emerald-400 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
                     </svg>
                 </div>
             </div>
 
-            {/* Cajas del Array posicionales absolutas */}
-            {array.map((item, index) => {
-              const isPivot = index === pivotIndex;
-              const isElevated = elevatedIndices.includes(index);
-              const isOutOfRange = currentRange && (index < currentRange[0] || index > currentRange[1]);
+            {/* Cajas del Array posicionales absolutas con animación simétrica */}
+            {cards.map((item) => {
+              const pos = item.position;
+              const isPivot = pos === pivotIndex;
+              const isElevated = elevatedIndices.includes(pos);
+              const isOutOfRange = currentRange && (pos < currentRange[0] || pos > currentRange[1]);
+              const isCelebrated = celebratedCount > pos;
+              const isCurrentCelebration = celebratingIndex === pos;
+              const isDuplicate = !isAnimating && !isSorted && duplicateValues.has(item.value);
               
+              // Simetría física en el intercambio y en la ola celebratoria
+              let elevationClass = 'translate-y-0 scale-100 z-10';
+              if (isCurrentCelebration) {
+                elevationClass = '-translate-y-4 scale-105 z-40';
+              } else if (swappingPair && item.id === swappingPair.upperId) {
+                elevationClass = '-translate-y-12 scale-110 z-30';
+              } else if (swappingPair && item.id === swappingPair.lowerId) {
+                elevationClass = 'translate-y-6 scale-110 z-20';
+              } else if (isElevated) {
+                elevationClass = '-translate-y-8 scale-110 z-20';
+              }
+
+              // Estilos de borde y fondo sin marcos oscuros o sombras negras
+              let cardBgColor = 'bg-[#0e172e] border border-cyan-400/30 text-white hover:border-cyan-300/60 shadow-[0_0_15px_rgba(6,182,212,0.2)]';
+              if (isDuplicate) {
+                cardBgColor = 'bg-rose-950/70 border-2 border-rose-500/80 text-rose-200 shadow-[0_0_20px_rgba(244,63,94,0.4)]';
+              } else if (isCurrentCelebration || isCelebrated) {
+                cardBgColor = isCurrentCelebration
+                  ? 'bg-emerald-500/90 border-2 border-emerald-300 text-white shadow-[0_0_35px_rgba(52,211,153,0.9)]'
+                  : 'bg-emerald-950/75 border border-emerald-400/80 text-emerald-200 shadow-[0_0_20px_rgba(16,185,129,0.45)]';
+              } else if (swappingPair && (item.id === swappingPair.upperId || item.id === swappingPair.lowerId)) {
+                cardBgColor = 'bg-purple-900/90 border-2 border-purple-400 text-purple-100 shadow-[0_0_25px_rgba(168,85,247,0.7)]';
+              } else if (isElevated) {
+                cardBgColor = 'bg-emerald-900/90 border-2 border-emerald-400 text-emerald-100 shadow-[0_0_25px_rgba(52,211,153,0.7)]';
+              } else if (isPivot) {
+                cardBgColor = 'bg-cyan-900/60 border-2 border-cyan-400 text-cyan-50 shadow-[0_0_20px_rgba(34,211,238,0.4)]';
+              }
+
               return (
                 <div 
                   key={item.id} 
-                  className={`absolute top-0 flex flex-col items-center transition-all duration-700 ease-in-out ${isElevated ? '-translate-y-8 scale-110 z-20' : 'z-10'} ${isOutOfRange ? 'opacity-30 grayscale brightness-50' : 'opacity-100'}`}
-                  style={{ left: `calc(${index * 10}%)`, width: '10%' }}
+                  className={`absolute top-0 flex flex-col items-center transition-all duration-700 ease-in-out ${elevationClass} ${isOutOfRange ? 'opacity-30 grayscale brightness-50' : 'opacity-100'}`}
+                  style={{ left: `calc(${pos * 10}%)`, width: '10%' }}
                 >
-                  <div 
-                    className={`w-16 h-20 md:w-20 md:h-24 flex items-center justify-center rounded-lg border-2 transition-all duration-300 shadow-lg overflow-hidden ${
-                      isElevated
-                        ? 'bg-emerald-900/80 border-emerald-400 text-emerald-50 shadow-[0_0_30px_rgba(52,211,153,0.6)]'
-                        : isPivot 
-                          ? 'bg-cyan-900/50 border-cyan-400 text-cyan-50 shadow-[0_0_20px_rgba(34,211,238,0.4)]'
-                          : 'bg-[#0d1a33] border-slate-700 text-white hover:border-slate-500 hover:bg-[#15254a]'
-                    }`}
-                  >
-                    <input 
-                      type="text"
-                      maxLength={3}
-                      value={item.value}
-                      disabled={isAnimating || isSorted}
-                      onChange={(e) => handleInputChange(item.id, e.target.value)}
-                      className="w-full h-full bg-transparent text-center outline-none text-2xl md:text-3xl font-black cursor-text disabled:cursor-default disabled:opacity-100"
-                    />
+                  {/* Chispas flotantes animadas al verificarse la celda */}
+                  {isCurrentCelebration && (
+                    <div className="absolute -top-7 left-1/2 -translate-x-1/2 pointer-events-none z-50 flex items-center justify-center">
+                      <div className="w-3 h-3 rounded-full bg-emerald-400 shadow-[0_0_15px_#34d399] animate-ping" />
+                      <span className="absolute -top-3 -left-3 text-emerald-300 text-xs animate-[spark-1_0.6s_ease-out_forwards]">✦</span>
+                      <span className="absolute -top-4 left-3 text-yellow-300 text-xs animate-[spark-2_0.6s_ease-out_forwards]">✨</span>
+                      <span className="absolute -bottom-2 -left-4 text-cyan-300 text-xs animate-[spark-3_0.6s_ease-out_forwards]">★</span>
+                      <span className="absolute -bottom-1 left-4 text-emerald-200 text-xs animate-[spark-4_0.6s_ease-out_forwards]">✦</span>
+                    </div>
+                  )}
+
+                  <div className={`quick-sort-card w-16 h-20 md:w-20 md:h-24 flex items-center justify-center rounded-lg transition-all duration-300 ${cardBgColor}`}>
+                    {isAnimating || isSorted ? (
+                      <span className="w-full h-full flex items-center justify-center text-2xl md:text-3xl font-black font-mono select-none pointer-events-none">
+                        {item.value}
+                      </span>
+                    ) : (
+                      <input 
+                        type="text"
+                        maxLength={3}
+                        value={item.value}
+                        onChange={(e) => handleInputChange(item.id, e.target.value)}
+                        className="w-full h-full bg-transparent text-center border-0 border-none outline-none focus:outline-none focus:ring-0 text-2xl md:text-3xl font-black cursor-text font-mono select-none"
+                        style={{ border: 'none', outline: 'none', boxShadow: 'none', background: 'transparent' }}
+                      />
+                    )}
                   </div>
                 </div>
               );
             })}
             
-            {/* Índices fijos en la parte inferior */}
-            {initialValues.map((_, idx) => (
-              <div key={`index-${idx}`} className="absolute bottom-[0px] flex justify-center pointer-events-none" style={{ left: `calc(${idx * 10}%)`, width: '10%' }}>
-                <span className="text-slate-400 font-tech-header text-sm tracking-wider">
-                  {idx}
-                </span>
-              </div>
-            ))}
+            {/* Puntero Inferior: PIVOTE (debajo de las celdas pero arriba de los índices) */}
+            <div className="absolute top-[88px] md:top-[106px] left-0 right-0 h-14 pointer-events-none z-30">
+                <div 
+                  className={`absolute flex flex-col items-center transition-all duration-700 ease-in-out ${pivotIndex !== null ? 'opacity-100 scale-100' : 'opacity-0 scale-50'}`}
+                  style={{ left: `calc(${(pivotIndex ?? 0) * 10}%)`, width: '10%' }}
+                >
+                    <svg className="w-5 h-5 text-cyan-400 animate-bounce mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                    </svg>
+                    <span className="text-cyan-300 font-mono font-black text-xs uppercase tracking-widest px-2 py-0.5 rounded bg-cyan-950/90 border border-cyan-400/50 shadow-[0_0_10px_rgba(34,211,238,0.4)]">
+                      PIVOTE
+                    </span>
+                </div>
+            </div>
+
+            {/* Índices fijos en la parte inferior (debajo del rótulo de PIVOTE) */}
+            <div className="absolute top-[148px] md:top-[170px] left-0 right-0 flex justify-between pointer-events-none">
+              {initialValues.map((_, idx) => (
+                <div key={`index-${idx}`} className="flex justify-center" style={{ width: '10%' }}>
+                  <span className="text-slate-400 font-mono text-sm tracking-wider">
+                    [{idx}]
+                  </span>
+                </div>
+              ))}
+            </div>
             
             {/* Curved arrow mockup representing swaps */}
-            <div className="absolute top-full left-0 right-0 h-16 md:h-24 pointer-events-none mt-2 md:mt-4">
+            <div className="absolute top-[195px] md:top-[215px] left-0 right-0 h-16 pointer-events-none">
               {swapLine && (
                 <svg className="absolute top-0 w-full h-full pointer-events-none transition-all duration-500" style={{ left: 0 }}>
                    <path 
                      d={`M calc(${(swapLine.from * 10) + 5}% ) 10 
-                         Q 50% 120 
+                         Q calc(${((swapLine.from + swapLine.to) / 2 * 10) + 5}% ) 80 
                          calc(${(swapLine.to * 10) + 5}% ) 10`}
                      fill="none" 
-                     stroke="rgba(168, 85, 247, 0.7)" 
+                     stroke="rgba(168, 85, 247, 0.85)" 
                      strokeWidth="3" 
                      strokeDasharray="5 5"
                      markerEnd="url(#arrowhead)"
@@ -414,6 +581,39 @@ export const QuickSortPanel: React.FC<QuickSortPanelProps> = ({ onBack }) => {
         </button>
 
       </footer>
+
+      {/* Estilos para Celdas y Animaciones de Chispas */}
+      <style>{`
+        .quick-sort-card {
+          box-shadow: none;
+          outline: none !important;
+        }
+        .quick-sort-card input {
+          border: none !important;
+          outline: none !important;
+          box-shadow: none !important;
+          background: transparent !important;
+          -webkit-appearance: none !important;
+          -moz-appearance: none !important;
+          appearance: none !important;
+        }
+        @keyframes spark-1 {
+          0% { transform: translate(0, 0) scale(0.6); opacity: 1; }
+          100% { transform: translate(-16px, -20px) scale(1.4); opacity: 0; }
+        }
+        @keyframes spark-2 {
+          0% { transform: translate(0, 0) scale(0.6); opacity: 1; }
+          100% { transform: translate(16px, -22px) scale(1.5); opacity: 0; }
+        }
+        @keyframes spark-3 {
+          0% { transform: translate(0, 0) scale(0.6); opacity: 1; }
+          100% { transform: translate(-20px, 14px) scale(1.3); opacity: 0; }
+        }
+        @keyframes spark-4 {
+          0% { transform: translate(0, 0) scale(0.6); opacity: 1; }
+          100% { transform: translate(20px, 12px) scale(1.4); opacity: 0; }
+        }
+      `}</style>
 
     </div>
   );
