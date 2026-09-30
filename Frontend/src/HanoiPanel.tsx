@@ -285,7 +285,6 @@ export const HanoiPanel: React.FC<HanoiPanelProps> = ({ onBack }) => {
             Hanoi
           </h1>
           <p className="text-xs font-bold tracking-widest text-indigo-400 mt-1">
-            {cargando ? 'RESOLVIENDO...' : reproduciendo ? 'ANIMANDO...' : 'LISTO PARA EJECUTAR'}
           </p>
         </div>
 
