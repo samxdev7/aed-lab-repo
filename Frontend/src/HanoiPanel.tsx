@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useSoundEffects } from './useSoundEffects';
 
 interface TorresHanoiDto {
   disco: number;
@@ -34,7 +35,7 @@ const DISK_COLORS: Record<number, { bg: string; border: string; text: string; sh
 // El poste mide 320px, así que se deja un margen cómodo por encima de esa
 // altura para que el disco se vea claramente por encima de la punta, no
 // rozándola.
-const ALTURA_DESPEJE = 400;
+const ALTURA_DESPEJE = 335;
 
 // Alto de cada disco (h-9 = 36px) + separación entre discos (gap-1.5 = 6px).
 // Se usa para calcular a qué altura real, dentro de su pila, estaba el disco
@@ -53,14 +54,10 @@ const VELOCIDADES: Record<VelocidadKey, { label: string; intervalo: number; dura
   rapida: { label: 'Rápida', intervalo: 400, duracion: 0.32 },
 };
 
-// Tamaño de diseño fijo del panel. Todo el contenido se dibuja a este tamaño
-// y luego se escala de forma uniforme (ver "scale" más abajo) para ajustarse
-// a cualquier ventana o nivel de zoom del navegador, sin que cambien las
-// proporciones relativas entre los elementos. Se parte del tamaño original
-// (1920x1080) y se divide entre 1.1 para que todo el contenido se vea
-// exactamente un 10% más grande al escalarse a la ventana.
-const DESIGN_WIDTH = 1920 / 1.1;
-const DESIGN_HEIGHT = 1080 / 1.1;
+// Área de diseño SOLO de las torres. Se escala para caber en el espacio libre
+// entre el encabezado y el footer, que se quedan a tamaño real.
+const TOWERS_W = 1400;
+const TOWERS_H = 500;
 
 export const HanoiPanel: React.FC<HanoiPanelProps> = ({ onBack }) => {
   const [discos, setDiscos] = useState<number>(3);
@@ -82,17 +79,87 @@ export const HanoiPanel: React.FC<HanoiPanelProps> = ({ onBack }) => {
   // DESIGN_HEIGHT) quepa siempre completo en la ventana visible, sin
   // recortes ni scroll, y sin verse afectado por el zoom del navegador
   // (que solo cambia cuántos px "caben" en la ventana).
+  const stageRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
 
   useEffect(() => {
+    const el = stageRef.current;
+    if (!el) return;
     const actualizarEscala = () => {
-      const escalaX = window.innerWidth / DESIGN_WIDTH;
-      const escalaY = window.innerHeight / DESIGN_HEIGHT;
-      setScale(Math.min(escalaX, escalaY));
+      const r = el.getBoundingClientRect();
+      setScale(Math.min(r.width / TOWERS_W, r.height / TOWERS_H));
     };
     actualizarEscala();
-    window.addEventListener('resize', actualizarEscala);
-    return () => window.removeEventListener('resize', actualizarEscala);
+    const observer = new ResizeObserver(actualizarEscala);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const { playHoverSound, playClickSound } = useSoundEffects();
+
+  // Fondo dinámico de nodos (igual que los demás paneles)
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animationFrameId: number;
+    let width = (canvas.width = window.innerWidth);
+    let height = (canvas.height = window.innerHeight);
+
+    const handleResize = () => {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    };
+    window.addEventListener('resize', handleResize);
+
+    const particles = Array.from({ length: 45 }, () => ({
+      x: Math.random() * width,
+      y: Math.random() * height,
+      vx: (Math.random() - 0.5) * 0.4,
+      vy: (Math.random() - 0.5) * 0.4,
+      size: Math.random() * 2 + 1,
+    }));
+
+    const render = () => {
+      ctx.clearRect(0, 0, width, height);
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        if (p.x < 0 || p.x > width) p.vx *= -1;
+        if (p.y < 0 || p.y > height) p.vy *= -1;
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(168, 85, 247, 0.4)';
+        ctx.fill();
+
+        for (let j = i + 1; j < particles.length; j++) {
+          const p2 = particles[j];
+          const dx = p.x - p2.x;
+          const dy = p.y - p2.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 130) {
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.strokeStyle = `rgba(99, 102, 241, ${1 - dist / 130})`;
+            ctx.lineWidth = 0.6;
+            ctx.stroke();
+          }
+        }
+      }
+      animationFrameId = requestAnimationFrame(render);
+    };
+    render();
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      cancelAnimationFrame(animationFrameId);
+    };
   }, []);
 
   // Refs a los contenedores de cada poste, usados para medir la distancia
@@ -205,35 +272,25 @@ export const HanoiPanel: React.FC<HanoiPanelProps> = ({ onBack }) => {
     setError(null);
   };
 
-  return (
-    <div className="fixed inset-0 bg-slate-950 flex items-center justify-center overflow-hidden select-none">
-      <div
-        style={{
-          width: DESIGN_WIDTH,
-          height: DESIGN_HEIGHT,
-          transform: `scale(${scale})`,
-          transformOrigin: 'center center',
-        }}
-        className="relative flex-shrink-0"
-      >
-    <div className="relative w-full h-full bg-slate-950 text-indigo-200 font-sans flex flex-col justify-between pt-3 px-8 pb-4 overflow-hidden select-none">
+      return (
+    <div className="fixed inset-0 bg-[#03060d] text-indigo-200 font-sans flex flex-col overflow-hidden select-none">
+      {/* Fondo general del proyecto */}
+      <canvas ref={canvasRef} className="absolute inset-0 z-0 pointer-events-none opacity-60" />
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-600/20 rounded-full blur-[120px] pointer-events-none z-0" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-cyan-600/20 rounded-full blur-[120px] pointer-events-none z-0" />
 
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e1b4b15_1px,transparent_1px),linear-gradient(to_bottom,#1e1b4b15_1px,transparent_1px)] bg-[size:4rem_4rem] pointer-events-none" />
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-blue-600/10 blur-[120px] rounded-full pointer-events-none" />
-      <div className="absolute bottom-10 left-1/3 w-[400px] h-[200px] bg-indigo-600/10 blur-[100px] rounded-full pointer-events-none" />
-
-      <header className="relative z-10 border-b border-indigo-900/40 pb-3 flex justify-between items-center flex-shrink-0">
+      <header className="relative z-10 w-full flex-shrink-0 flex items-center justify-between px-10 pt-2 pb-2">
         <div>
-          <h1 className="text-4xl font-extrabold tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-300">
-            Torres de Hanoi
+          <h1 className="text-4xl lg:text-5xl font-black tracking-[0.12em] uppercase text-transparent bg-clip-text bg-gradient-to-b from-white via-cyan-100 to-cyan-400 drop-shadow-[0_0_10px_rgba(34,211,238,0.3)]">
+            Hanoi
           </h1>
-          <p className="text-sm font-medium text-indigo-400 mt-1">
+          <p className="text-xs font-bold tracking-widest text-indigo-400 mt-1">
             {cargando ? 'RESOLVIENDO...' : reproduciendo ? 'ANIMANDO...' : 'LISTO PARA EJECUTAR'}
           </p>
         </div>
 
-        <div className="flex items-center gap-6">
-          <label className="text-base font-semibold text-indigo-300 flex items-center gap-3 bg-slate-900/80 px-4 py-2.5 rounded-2xl border border-indigo-800/40 backdrop-blur-md">
+        <div className="flex items-center gap-4">
+          <label className="text-sm font-bold text-indigo-300 flex items-center gap-2 bg-slate-900/80 px-4 py-2 rounded-full border border-indigo-800/40 backdrop-blur-md">
             DISCOS [1-7]:
             <input
               type="number"
@@ -244,25 +301,23 @@ export const HanoiPanel: React.FC<HanoiPanelProps> = ({ onBack }) => {
               onChange={(e) => {
                 const nuevaCantidad = Math.min(7, Math.max(1, Number(e.target.value)));
                 setDiscos(nuevaCantidad);
-
-                // Reflejar el cambio de inmediato en la torre A, sin esperar a EJECUTAR.
                 const discosIniciales = Array.from({ length: nuevaCantidad }, (_, i) => nuevaCantidad - i);
                 setTorres({ A: discosIniciales, B: [], C: [] });
                 setMovimientos([]);
                 setPasoActual(0);
                 setError(null);
               }}
-              className="w-16 bg-slate-950 border border-indigo-600/50 text-indigo-200 font-bold px-2 py-1 rounded-xl text-center focus:outline-none focus:border-blue-400 text-lg disabled:opacity-50"
+              className="w-14 bg-slate-950 border border-indigo-600/50 text-indigo-200 font-bold px-2 py-0.5 rounded-lg text-center focus:outline-none focus:border-blue-400 text-base disabled:opacity-50"
             />
           </label>
 
-          <label className="text-base font-semibold text-indigo-300 flex items-center gap-3 bg-slate-900/80 px-4 py-2.5 rounded-2xl border border-indigo-800/40 backdrop-blur-md">
+          <label className="text-sm font-bold text-indigo-300 flex items-center gap-2 bg-slate-900/80 px-4 py-2 rounded-full border border-indigo-800/40 backdrop-blur-md">
             VELOCIDAD:
             <select
               value={velocidad}
               disabled={reproduciendo}
               onChange={(e) => setVelocidad(e.target.value as VelocidadKey)}
-              className="bg-slate-950 border border-indigo-600/50 text-indigo-200 font-bold px-3 py-1 rounded-xl text-left focus:outline-none focus:border-blue-400 text-base disabled:opacity-50 cursor-pointer"
+              className="bg-slate-950 border border-indigo-600/50 text-indigo-200 font-bold px-2 py-0.5 rounded-lg focus:outline-none focus:border-blue-400 text-sm disabled:opacity-50 cursor-pointer"
             >
               {(Object.keys(VELOCIDADES) as VelocidadKey[]).map((key) => (
                 <option key={key} value={key} className="bg-slate-950 text-indigo-200">
@@ -273,18 +328,20 @@ export const HanoiPanel: React.FC<HanoiPanelProps> = ({ onBack }) => {
           </label>
 
           <button
-            onClick={resolverHanoi}
+            onClick={() => { playClickSound(); resolverHanoi(); }}
+            onMouseEnter={playHoverSound}
             disabled={cargando || reproduciendo}
-            className="px-8 py-3.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-600 text-white font-bold text-base rounded-full shadow-lg shadow-indigo-600/30 hover:shadow-indigo-500/50 active:scale-95 transition-all duration-200 flex items-center gap-2 disabled:opacity-40"
+            className="px-8 py-2.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-600 text-white font-bold text-sm tracking-wide rounded-full shadow-lg shadow-indigo-600/30 hover:shadow-indigo-500/50 active:scale-95 transition-all duration-200 flex items-center gap-2 disabled:opacity-40"
           >
             <span>EJECUTAR</span>
-            <span className="text-lg">➔</span>
+            <span>➔</span>
           </button>
 
           <button
-            onClick={() => setReproduciendo(!reproduciendo)}
+            onClick={() => { playClickSound(); setReproduciendo(!reproduciendo); }}
+            onMouseEnter={playHoverSound}
             disabled={movimientos.length === 0 || pasoActual >= movimientos.length}
-            className="px-8 py-3.5 bg-gradient-to-r from-indigo-700 via-purple-600 to-indigo-800 hover:from-indigo-600 hover:to-purple-500 text-white font-bold text-base rounded-full shadow-lg shadow-purple-600/30 hover:shadow-purple-500/50 active:scale-95 transition-all duration-200 flex items-center gap-2 disabled:opacity-40"
+            className="px-8 py-2.5 bg-gradient-to-r from-indigo-700 via-purple-600 to-indigo-800 hover:from-indigo-600 hover:to-purple-500 text-white font-bold text-sm tracking-wide rounded-full shadow-lg shadow-purple-600/30 hover:shadow-purple-500/50 active:scale-95 transition-all duration-200 flex items-center gap-2 disabled:opacity-40"
           >
             <span>{reproduciendo ? 'PAUSAR' : 'REPRODUCIR'}</span>
             <span className="text-xs bg-indigo-950/60 px-2 py-0.5 rounded-full border border-indigo-400/30">
@@ -293,8 +350,9 @@ export const HanoiPanel: React.FC<HanoiPanelProps> = ({ onBack }) => {
           </button>
 
           <button
-            onClick={reiniciar}
-            className="px-8 py-3.5 bg-gradient-to-r from-red-600 via-red-500 to-red-600 hover:from-red-500 hover:to-red-600 text-white font-bold text-base rounded-full shadow-lg shadow-red-600/30 hover:shadow-red-500/50 active:scale-95 transition-all duration-200 flex items-center gap-2 disabled:opacity-40"
+            onClick={() => { playClickSound(); reiniciar(); }}
+            onMouseEnter={playHoverSound}
+            className="px-8 py-2.5 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 text-white rounded-full font-bold text-sm tracking-wide shadow-md hover:shadow-lg active:scale-95 transition-all"
           >
             REINICIAR
           </button>
@@ -302,14 +360,23 @@ export const HanoiPanel: React.FC<HanoiPanelProps> = ({ onBack }) => {
       </header>
 
       {error && (
-        <div className="relative z-10 bg-red-950/80 border border-red-500/60 text-red-200 p-3 text-sm text-center rounded-2xl shadow-lg backdrop-blur-md">
+        <div className="relative z-10 mx-10 bg-red-950/80 border border-red-500/60 text-red-200 p-2 text-sm text-center rounded-2xl shadow-lg backdrop-blur-md flex-shrink-0">
           ERROR: {error}
         </div>
       )}
 
-      <main className="relative z-10 flex-1 min-h-0 flex items-end justify-around py-4 px-12">
-        {(['A', 'B', 'C'] as const).map((torreKey) => (
-          <div key={torreKey} className="relative flex flex-col items-center justify-center h-full w-1/4">
+      <main ref={stageRef} className="relative z-10 flex-1 min-h-0 w-full flex items-center justify-center">
+                <div
+          style={{
+            width: TOWERS_W,
+            height: TOWERS_H,
+            transform: `scale(${scale})`,
+            transformOrigin: 'center center',
+          }}
+          className="relative flex-shrink-0 flex items-center justify-around px-12 py-2"
+        >
+          {(['A', 'B', 'C'] as const).map((torreKey) => (
+            <div key={torreKey} className="relative flex flex-col items-center justify-center h-full w-1/4">
 
             {/* Bloque compacto: poste + discos, con altura fija propia (no
                 depende de la altura total de la columna) para que la torre
@@ -422,27 +489,30 @@ export const HanoiPanel: React.FC<HanoiPanelProps> = ({ onBack }) => {
             </div>
           </div>
         ))}
+              </div>
       </main>
 
-      <footer className="border-t border-emerald-900/40 pt-2 text-xs text-slate-500 flex justify-between items-center flex-shrink-0">
-        <span>
+      <footer className="relative z-10 w-full flex-shrink-0 px-10 pb-2 pt-0 flex items-center justify-between">
+        <div className="text-[13px] font-bold tracking-widest px-6 py-2.5 rounded-xl backdrop-blur-md border bg-[#0B0F19]/90 border-cyan-500/20 text-[#94a3b8] shadow-[0_0_20px_rgba(6,182,212,0.1)]">
           {movimientos[pasoActual - 1]
-            ? ` MOVIMIENTO: Disco ${movimientos[pasoActual - 1].disco} [${movimientos[pasoActual - 1].origen} -> ${movimientos[pasoActual - 1].destino}]`
-            : '> ESPERANDO EJECUCION...'}
-        </span>
+            ? `MOVIMIENTO: DISCO ${movimientos[pasoActual - 1].disco} [${movimientos[pasoActual - 1].origen} ➔ ${movimientos[pasoActual - 1].destino}]`
+            : 'ESPERANDO EJECUCIÓN...'}
+        </div>
 
         {onBack && (
           <button
-            onClick={onBack}
-            className="px-6 py-3.5 bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 hover:from-slate-700 hover:to-slate-600 border border-indigo-500/30 text-indigo-200 font-bold text-base rounded-full shadow-lg shadow-slate-900/50 hover:shadow-indigo-500/20 active:scale-95 transition-all duration-200 flex items-center gap-2"
+            onClick={() => {
+              playClickSound();
+              onBack();
+            }}
+            onMouseEnter={playHoverSound}
+            className="relative inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-white bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-[length:200%_auto] hover:bg-right shadow-lg shadow-indigo-600/40 hover:shadow-purple-500/70 hover:-translate-y-1 active:translate-y-0 active:scale-95 transition-all duration-300 group cursor-pointer border border-indigo-300/30"
           >
-            <ArrowLeft className="w-5 h-5 transition-transform duration-200 group-hover:-translate-x-1" />
-            <span>INICIO</span>
+            <ArrowLeft className="w-4 h-4 transform group-hover:-translate-x-1.5 transition-transform duration-300" />
+            <span className="text-[15px] tracking-wider capitalize">Atrás</span>
           </button>
         )}
       </footer>
-    </div>
-      </div>
     </div>
   );
 };
