@@ -3,6 +3,7 @@ import { ArrowLeft, Pause, Play, RotateCcw } from 'lucide-react';
 import { resolverSaltoDeRana } from './services/saltoRanaService';
 import type { MovimientoRana } from './services/saltoRanaService';
 import { useNotification } from './NotificationContext';
+import { useSoundEffects } from './useSoundEffects';
 
 interface SaltoRanaPanelProps {
   onBack: () => void;
@@ -206,6 +207,7 @@ const POSICIONES_DE_LAS_FLORES = [
 export const SaltoRanaPanel: React.FC<SaltoRanaPanelProps> = ({ onBack }) => {
   const { showNotification } = useNotification();
 
+  const { playHoverSound, playClickSound } = useSoundEffects();
   const [posiciones, setPosiciones] = useState<CeldaDelTablero[]>(construirTableroInicial());
   const [movimientos, setMovimientos] = useState<MovimientoRana[]>([]);
   const [indiceSiguienteMovimiento, setIndiceSiguienteMovimiento] = useState<number>(0);
@@ -226,6 +228,7 @@ export const SaltoRanaPanel: React.FC<SaltoRanaPanelProps> = ({ onBack }) => {
   const referenciaDelAudioDeCroar = useRef<HTMLAudioElement | null>(null);
   const referenciaDelCuadroDeAnimacion = useRef<number | null>(null);
   const referenciaDelCronometro = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => { estaReproduciendoRef.current = estaReproduciendo; }, [estaReproduciendo]);
   useEffect(() => { velocidadRef.current = velocidad; }, [velocidad]);
@@ -383,6 +386,7 @@ export const SaltoRanaPanel: React.FC<SaltoRanaPanelProps> = ({ onBack }) => {
   }, [reproducirSonidoDeSalto, reproducirSonidoDeAterrizaje, showNotification]);
 
   const handleAlternarReproduccion = () => {
+    playClickSound();
     if (estaReproduciendo) {
       setEstaReproduciendo(false);
       if (referenciaDelCronometro.current !== null) {
@@ -399,6 +403,7 @@ export const SaltoRanaPanel: React.FC<SaltoRanaPanelProps> = ({ onBack }) => {
   };
 
   const handleReiniciar = () => {
+    playClickSound();
     limpiarTemporizadores();
     setEstaReproduciendo(false);
     setAnimacionActual(null);
@@ -410,20 +415,97 @@ export const SaltoRanaPanel: React.FC<SaltoRanaPanelProps> = ({ onBack }) => {
     setIndiceSiguienteMovimiento(0);
   };
 
-  return (
-    <div className="h-dvh min-h-screen w-full overflow-hidden bg-[#0a0d18] text-white flex flex-col items-center justify-between p-4 sm:p-6 font-sans">
-      <header className="text-center shrink-0">
-        <span className="text-xs uppercase tracking-widest text-emerald-400 font-bold bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/30">
+    // Fondo dinámico de nodos (igual que el panel de 8 Reinas)
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animationFrameId: number;
+    let width = (canvas.width = window.innerWidth);
+    let height = (canvas.height = window.innerHeight);
+
+    const handleResize = () => {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    };
+    window.addEventListener('resize', handleResize);
+
+    const particles = Array.from({ length: 45 }, () => ({
+      x: Math.random() * width,
+      y: Math.random() * height,
+      vx: (Math.random() - 0.5) * 0.4,
+      vy: (Math.random() - 0.5) * 0.4,
+      size: Math.random() * 2 + 1,
+    }));
+
+    const render = () => {
+      ctx.clearRect(0, 0, width, height);
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        if (p.x < 0 || p.x > width) p.vx *= -1;
+        if (p.y < 0 || p.y > height) p.vy *= -1;
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(168, 85, 247, 0.4)';
+        ctx.fill();
+
+        for (let j = i + 1; j < particles.length; j++) {
+          const p2 = particles[j];
+          const dx = p.x - p2.x;
+          const dy = p.y - p2.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 130) {
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.strokeStyle = `rgba(99, 102, 241, ${1 - dist / 130})`;
+            ctx.lineWidth = 0.6;
+            ctx.stroke();
+          }
+        }
+      }
+      animationFrameId = requestAnimationFrame(render);
+    };
+    render();
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, []);
+
+    return (
+    <div className="relative h-dvh w-full overflow-hidden bg-[#03060d] text-white flex flex-col items-center justify-between px-4 sm:px-6 py-3 font-sans select-none">
+      {/* Fondo: red de nodos + destellos (igual que 8 Reinas) */}
+      <canvas ref={canvasRef} className="absolute inset-0 z-0 pointer-events-none opacity-60" />
+            <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-600/20 rounded-full blur-[120px] pointer-events-none z-0" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-cyan-600/20 rounded-full blur-[120px] pointer-events-none z-0" />
+
+      <header className="relative z-10 text-center shrink-0">
+        <span className="text-xs uppercase tracking-widest text-emerald-300 font-bold bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-400/40 shadow-[0_0_15px_rgba(16,185,129,0.25)]">
           Algoritmos Recursivos
         </span>
-        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight mt-2">El Salto de la Rana</h1>
+        <h1 className="text-3xl sm:text-4xl font-black tracking-[0.12em] uppercase mt-2 text-transparent bg-clip-text bg-gradient-to-b from-white via-emerald-100 to-emerald-400 drop-shadow-[0_0_10px_rgba(52,211,153,0.35)]">
+          El Salto de la Rana
+        </h1>
       </header>
 
-      <main className="flex-1 w-full flex flex-col items-center justify-center gap-4 min-h-0">
-        <div className="w-full max-w-4xl" style={{ aspectRatio: `${ANCHO_DEL_ESCENARIO} / ${ALTO_DEL_ESCENARIO}` }}>
+      <main className="relative z-10 flex-1 w-full flex flex-col items-center justify-center gap-3 min-h-0">
+        <div
+          className="shrink-0"
+          style={{
+            aspectRatio: `${ANCHO_DEL_ESCENARIO} / ${ALTO_DEL_ESCENARIO}`,
+            width: 'min(100%, 56rem, calc((100dvh - 19rem) * 2.857))',
+          }}
+        >
           <svg
             viewBox={`0 0 ${ANCHO_DEL_ESCENARIO} ${ALTO_DEL_ESCENARIO}`}
-            className="w-full h-full rounded-3xl border border-emerald-500/30 shadow-lg"
+            className="w-full h-full rounded-3xl border border-emerald-400/40 shadow-[0_0_35px_rgba(16,185,129,0.25)]"
             role="img"
             aria-label="Estanque con seis ranas sobre rocas"
           >
@@ -541,16 +623,20 @@ export const SaltoRanaPanel: React.FC<SaltoRanaPanelProps> = ({ onBack }) => {
           </svg>
         </div>
 
-        <div className="flex flex-wrap items-center justify-center gap-3 bg-[#11162b] border border-emerald-500/30 rounded-2xl px-5 py-3 shrink-0">
-          <div className="flex items-center gap-1 bg-[#0a0d18] rounded-xl p-1 border border-emerald-500/20">
+                <div className="flex flex-wrap items-center justify-center gap-3 bg-[#0B0F19]/85 backdrop-blur-md border border-emerald-400/30 rounded-2xl px-5 py-2.5 shrink-0 shadow-[0_0_25px_rgba(16,185,129,0.15)]">
+          <div className="flex items-center gap-1 bg-[#02050f] rounded-xl p-1 border border-cyan-500/30">
             {(['lento', 'normal', 'rapido'] as VelocidadDeAnimacion[]).map((opcionDeVelocidad) => (
               <button
                 key={opcionDeVelocidad}
-                onClick={() => setVelocidad(opcionDeVelocidad)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${
+                onClick={() => {
+                  playClickSound();
+                  setVelocidad(opcionDeVelocidad);
+                }}
+                onMouseEnter={playHoverSound}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize tracking-wide transition-all ${
                   velocidad === opcionDeVelocidad
-                    ? 'bg-emerald-500 text-emerald-950'
-                    : 'text-slate-300 hover:text-white'
+                    ? 'bg-gradient-to-r from-emerald-400 to-cyan-400 text-slate-900 shadow-[0_0_12px_rgba(34,211,238,0.6)]'
+                    : 'text-slate-300 hover:text-white hover:bg-white/5'
                 }`}
               >
                 {opcionDeVelocidad}
@@ -558,10 +644,11 @@ export const SaltoRanaPanel: React.FC<SaltoRanaPanelProps> = ({ onBack }) => {
             ))}
           </div>
 
-          <button
+                    <button
             onClick={handleAlternarReproduccion}
+            onMouseEnter={playHoverSound}
             disabled={estaCargando || movimientos.length === 0}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-semibold transition-all active:scale-95"
+            className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-400 hover:via-teal-400 hover:to-cyan-400 disabled:opacity-50 text-white font-bold tracking-wide shadow-[0_0_20px_rgba(20,184,166,0.45)] hover:shadow-[0_0_28px_rgba(34,211,238,0.7)] hover:-translate-y-0.5 transition-all active:scale-95"
           >
             {estaReproduciendo ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
             {estaReproduciendo ? 'Pausar' : 'Reproducir'}
@@ -569,25 +656,30 @@ export const SaltoRanaPanel: React.FC<SaltoRanaPanelProps> = ({ onBack }) => {
 
           <button
             onClick={handleReiniciar}
-            className="p-2.5 rounded-xl bg-slate-500/20 text-slate-300 hover:bg-slate-500 hover:text-white transition-all"
+            onMouseEnter={playHoverSound}
+            className="p-2.5 rounded-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 text-white shadow-md hover:shadow-[0_0_18px_rgba(249,115,22,0.6)] transition-all active:scale-95"
             title="Reiniciar animación"
           >
             <RotateCcw className="w-5 h-5" />
           </button>
         </div>
 
-        <p className="text-xs text-slate-400 shrink-0">
+        <p className="text-xs font-bold tracking-widest text-cyan-300/70 uppercase shrink-0">
           {estaCargando ? 'Calculando la solución...' : `Movimiento ${indiceSiguienteMovimiento} de ${movimientos.length}`}
         </p>
       </main>
 
-      <footer className="flex justify-end w-full max-w-4xl shrink-0">
+        <footer className="relative z-10 flex justify-end w-full shrink-0 px-6 pb-1 pt-1">
         <button
-          onClick={onBack}
-          className="group flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-semibold hover:from-emerald-500 hover:to-teal-500 transition-all duration-200 shadow-lg active:scale-95"
+          onClick={() => {
+            playClickSound();
+            onBack();
+          }}
+          onMouseEnter={playHoverSound}
+          className="relative inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-white bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-[length:200%_auto] hover:bg-right shadow-lg shadow-indigo-600/40 hover:shadow-purple-500/70 hover:-translate-y-1 active:translate-y-0 active:scale-95 transition-all duration-300 group cursor-pointer border border-indigo-300/30"
         >
-          <ArrowLeft className="w-5 h-5 transition-transform duration-200 group-hover:-translate-x-1" />
-          Atrás
+          <ArrowLeft className="w-4 h-4 transform group-hover:-translate-x-1.5 transition-transform duration-300" />
+          <span className="text-[15px] tracking-wider capitalize">Atrás</span>
         </button>
       </footer>
     </div>
