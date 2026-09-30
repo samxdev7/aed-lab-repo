@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { PresentationPanel } from './PresentationPanel';
 import { RecursiveMenuPanel } from './RecursiveMenuPanel';
 import { NotificationProvider } from './NotificationContext';
+import { HanoiPanel } from './HanoiPanel';
+import { SaltoRanaPanel } from './SaltoRanaPanel';
 import { QueensPanelV2 } from './QueensPanelV2';
 import { QuickSortPanel } from './QuickSortPanel';
 
@@ -32,32 +34,12 @@ export default function App() {
           />
         )}
 
-        {/* Maquetación estática de vistas para los 4 ejercicios */}
-
         {currentScreen === 'hanoi' && (
-          <div className="min-h-screen bg-[#0B0D1B] text-white p-8 flex flex-col justify-between">
-            <h1 className="text-3xl font-bold text-cyan-400">Torres de Hanoi</h1>
-            <p className="text-slate-400">Interfaz base lista para implementar lógica de animación.</p>
-            <button
-              onClick={() => setCurrentScreen('menu')}
-              className="px-6 py-2 bg-indigo-600 rounded-xl w-fit"
-            >
-              Atrás
-            </button>
-          </div>
+          <HanoiPanel onBack={() => setCurrentScreen('menu')} />
         )}
 
         {currentScreen === 'frog' && (
-          <div className="min-h-screen bg-[#0B0D1B] text-white p-8 flex flex-col justify-between">
-            <h1 className="text-3xl font-bold text-emerald-400">Salto de la Rana</h1>
-            <p className="text-slate-400">Interfaz base lista para implementar lógica de animación.</p>
-            <button
-              onClick={() => setCurrentScreen('menu')}
-              className="px-6 py-2 bg-indigo-600 rounded-xl w-fit"
-            >
-              Atrás
-            </button>
-          </div>
+          <SaltoRanaPanel onBack={() => setCurrentScreen('menu')} />
         )}
 
         {currentScreen === 'queens' && (
