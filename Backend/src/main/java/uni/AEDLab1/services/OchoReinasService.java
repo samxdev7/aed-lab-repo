@@ -1,106 +1,157 @@
 package uni.AEDLab1.services;
 
+import java.util.ArrayList;
+import java.util.List;
+import org.springframework.stereotype.Service;
+import uni.AEDLab1.models.EightQueensResponseDto;
+import uni.AEDLab1.models.QueenStepDto;
+
 /**
- * Servicio que maneja la interacción de las piezas de reinas dentro del tablero de ajedrez,
- * procesadas dentro de un arreglo estático que simula a la estructura Set.
+ * Servicio que gestiona la colocación y verificación recursiva del problema de las ocho reinas
+ * en un tablero de ajedrez 8x8 con la combinación establecida.
+ * Implementa algoritmos estrictamente recursivos en Java para validar amenazas mutuas.
  * 
  * @author samxdev7
- * @version 1.0
+ * @version 2.0
  */
+@Service
 public class OchoReinasService {
-    private final int TAMANO = 8;
-    private final int X = 0;
-    private final int Y = 1;
-    
-    private int[][] registroReinas;
-    private int ultimo = -1;
-    
-    public OchoReinasService() {
-        this.registroReinas = new int[TAMANO][2];
-    }
-    
-    public int[][] getQueens() { return this.registroReinas; }
+
+    public static final int TAMANO = 8;
     
     /**
-     * @param x -> Posicion de la reina a colocar en coordenada en x.
-     * @param y -> Posicion de la reina a colocar en coordenada en y.
+     * Combinación de solución fija establecida para el tablero 8x8.
+     * El índice representa la fila (0 a 7) y el valor representa la columna (0 a 7).
+     * Corresponde a las casillas: a8, e7, h6, f5, c4, g3, b2, d1.
+     */
+    public static final int[] SOLUCION = {0, 4, 7, 5, 2, 6, 1, 3};
+
+    /**
+     * Resuelve y genera la traza secuencial de colocación de las 8 reinas,
+     * verificando recursivamente cada una en cada paso sin amenazas.
      * 
-     * @return Señal de colocado de reina dentro del tablero exitoso.
+     * @return EightQueensResponseDto con la matriz de solución, los pasos verificados y el mensaje.
      */
-    public boolean agregarReina(int x, int y) {
-        if (verificarPiezaExistente(ultimo, x, y)) return false;
-        
-        this.registroReinas[++ultimo][X] = x;
-        this.registroReinas[ultimo][Y] = y;
-        return true;
-    }
-    
-    /**
-     * @param currX -> Posicion actual de la reina a mover en coordenada en x.
-     * @param currY -> Posicion actual de la reina a mover en coordenada en y.
-     * @param newX -> Posicion objetivo de la reina a mover en coordenada en x.
-     * @param newY -> Posicion objetivo de la reina a mover en coordenada en y.
-     * 
-     * @return Señal de colocado de reina dentro del tablero exitoso.
-     */
-    public boolean moverReina(int currX, int currY, int newX, int newY) {
-        if (verificarPiezaExistente(ultimo, newX, newY)) return false;
-        int pos = obtenerIndiceDeReinaEnRegistro(ultimo, currX, currY);
-        
-        this.registroReinas[pos][X] = newX;
-        this.registroReinas[pos][Y] = newY;
-        return true;
-    }
-    
-    /**
-     * @return Señal de registro limpiado correctamente.
-     */
-    public boolean reiniciarRegistroDeReinas() {
-        ultimo = -1;
-        registroReinas = new int[TAMANO][2];
-        return true;
-    }
-    
-    private boolean verificarPiezaExistente(int i, int x, int y) {
-        if (i < 0) return false;
-        if ((this.registroReinas[i][X] == x) && (this.registroReinas[i][Y] == y))
-            return true;
-        
-        return verificarPiezaExistente(i-1, x, y);
-    }
-    
-    private int obtenerIndiceDeReinaEnRegistro(int i, int x, int y) {
-        if (i < 0) return -1;
-        if ((this.registroReinas[i][X] == x) && (this.registroReinas[i][Y] == y)) {
-            return i;
+    public EightQueensResponseDto solveWithRecursiveTrace() {
+        List<QueenStepDto> steps = new ArrayList<>();
+        int[] placed = new int[TAMANO];
+
+        for (int r = 0; r < TAMANO; r++) {
+            int c = SOLUCION[r];
+            placed[r] = c;
+
+            // Verificación puramente recursiva contra las reinas previamente colocadas (0 a r - 1)
+            boolean safe = isSafeRecursive(r, c, placed, r - 1);
+
+            char file = (char) ('a' + c);
+            int rank = 8 - r;
+            String notation = "REINA " + (r + 1) + " [" + Character.toUpperCase(file) + rank + "]";
+            String msg = "Reina " + (r + 1) + " colocada en (" + r + ", " + c + ") y verificada recursivamente sin amenazas.";
+
+            steps.add(new QueenStepDto(r + 1, r, c, notation, safe, msg));
         }
-        
-        return obtenerIndiceDeReinaEnRegistro(i-1, x, y);
+
+        int[][] solutionMatrix = getSolutionMatrix();
+        boolean allValid = verifyAllRecursive(SOLUCION, TAMANO);
+
+        return new EightQueensResponseDto(
+            solutionMatrix,
+            steps,
+            allValid,
+            "Las ocho reinas de la combinación establecida fueron verificadas recursivamente sin amenazas mutuas."
+        );
     }
-    
+
     /**
-     * @return Señal de las ocho reinas colocadas en posiciones en el que no se amenacen mutuamente.
+     * Verifica recursivamente si una reina en (row, col) entra en conflicto con las reinas
+     * registradas en índices de 0 hasta targetIndex.
+     * 
+     * @param row Fila de la reina a evaluar.
+     * @param col Columna de la reina a evaluar.
+     * @param positions Arreglo de posiciones donde positions[i] = columna de la reina en fila i.
+     * @param targetIndex Índice de la reina previa a evaluar contra la actual.
+     * @return true si no existe ninguna amenaza entre la reina y las reinas hasta targetIndex; false si se amenazan.
      */
-    public boolean ejecutarVerificacion() {
-        int i = 0, j = 0;
-        
-        if (ultimo < TAMANO - 1) return false;
-        return verificar(i, j);
-    }
-    
-    private boolean verificar(int i, int j) {
-        if ((i >= TAMANO - 1) && (j >= TAMANO - 1)) return true;
-        if (i == j) return verificar(i, ++j);
-        
-        if (unaReinaAmenazaAOtraReina(registroReinas[i][X], registroReinas[i][Y], registroReinas[j][X], registroReinas[j][Y])) {
+    public boolean isSafeRecursive(int row, int col, int[] positions, int targetIndex) {
+        // Caso base: se revisaron todas las reinas previas sin conflictos
+        if (targetIndex < 0) {
+            return true;
+        }
+
+        int prevRow = targetIndex;
+        int prevCol = positions[targetIndex];
+
+        // Detección de amenaza: misma fila, misma columna o misma diagonal
+        if (row == prevRow || col == prevCol || Math.abs(row - prevRow) == Math.abs(col - prevCol)) {
             return false;
         }
-        
-        if (j >= TAMANO - 1) return verificar(++i, (j = 0));
-        return verificar(i, ++j);
+
+        // Llamada recursiva hacia la reina anterior
+        return isSafeRecursive(row, col, positions, targetIndex - 1);
     }
-    
-    private boolean unaReinaAmenazaAOtraReina(int x1, int y1, int x2, int y2) {
-        return (x1 == x2) && (y1 == y2) && (Math.abs(x2 - x1) == Math.abs(y2 - y1));
+
+    /**
+     * Verifica recursivamente un arreglo de posiciones de reinas de tamaño n.
+     * 
+     * @param positions Arreglo de tamaño TAMANO con las columnas de cada reina por fila.
+     * @param n Número de reinas colocadas a validar (de 1 a TAMANO).
+     * @return true si ninguna de las n reinas se amenaza mutuamente; false en caso contrario.
+     */
+    public boolean verifyAllRecursive(int[] positions, int n) {
+        if (positions == null || n <= 1) {
+            return true;
+        }
+
+        int lastRow = n - 1;
+        int lastCol = positions[lastRow];
+
+        // Validar recursivamente la última reina contra todas las anteriores
+        if (!isSafeRecursive(lastRow, lastCol, positions, lastRow - 1)) {
+            return false;
+        }
+
+        // Llamada recursiva para validar el subconjunto de n - 1 reinas
+        return verifyAllRecursive(positions, n - 1);
+    }
+
+    /**
+     * Verifica recursivamente si una matriz de reinas [N][2] es válida y libre de amenazas.
+     * 
+     * @param queensMatrix Matriz de N reinas con coordenadas [fila, columna].
+     * @return true si ninguna se amenaza mutuamente y hay 8 reinas sin conflicto.
+     */
+    public boolean verifyMatrixRecursive(int[][] queensMatrix) {
+        if (queensMatrix == null || queensMatrix.length != TAMANO) {
+            return false;
+        }
+
+        int[] positions = new int[TAMANO];
+        for (int i = 0; i < TAMANO; i++) {
+            if (queensMatrix[i] == null || queensMatrix[i].length < 2) {
+                return false;
+            }
+            int row = queensMatrix[i][0];
+            int col = queensMatrix[i][1];
+            if (row < 0 || row >= TAMANO || col < 0 || col >= TAMANO) {
+                return false;
+            }
+            positions[row] = col;
+        }
+
+        return verifyAllRecursive(positions, TAMANO);
+    }
+
+    /**
+     * Retorna la matriz 8x2 de la combinación fija establecida.
+     * 
+     * @return int[8][2] con coordenadas [fila, columna].
+     */
+    public int[][] getSolutionMatrix() {
+        int[][] matrix = new int[TAMANO][2];
+        for (int i = 0; i < TAMANO; i++) {
+            matrix[i][0] = i;
+            matrix[i][1] = SOLUCION[i];
+        }
+        return matrix;
     }
 }

@@ -1,119 +1,84 @@
 package uni.AEDLab1.controller;
 
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotNull;
 import java.util.HashMap;
 import java.util.Map;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import uni.AEDLab1.models.MoveQueenDto;
-import uni.AEDLab1.models.QueenPositionDto;
+import uni.AEDLab1.models.EightQueensResponseDto;
 import uni.AEDLab1.services.OchoReinasService;
 
 /**
- * Controlador REST para gestionar los algoritmos recursivos del problema de las ocho reinas.
- * Expone los endpoints para interactuar con el tablero de ajedrez (un arreglo bidimensional 8x8).
+ * Controlador REST para el problema de las ocho reinas en un tablero 8x8.
+ * Expone los endpoints para obtener la traza de pasos verificada recursivamente
+ * y validar la combinación establecida.
  * 
  * @author samxdev7
- * @version 1.0
+ * @version 2.0
  */
 @RestController
 @RequestMapping("/api/")
 public class OchoReinasController {
     
-    // Instancia en memoria del servicio para el Laboratorio 3
-    private OchoReinasService service = new OchoReinasService();
+    private final OchoReinasService service;
+
+    public OchoReinasController(OchoReinasService service) {
+        this.service = service;
+    }
     
     /**
-     * Endpoint POST: /recursive/eight-queens
-     * Ordena un arreglo como entrada y el método de ordenación seleccionado, 
-     * una vez ordenado se devuelve.
+     * Endpoint POST: /api/recursive/eight-queens
+     * Genera y retorna la traza paso a paso de la combinación fija de 8 reinas,
+     * verificando recursivamente cada inserción en Java para que el Frontend la anime.
+     * 
+     * @return EightQueensResponseDto con la matriz de solución y los 8 pasos verificados recursivamente.
      */
     @PostMapping("/recursive/eight-queens")
-    public ResponseEntity<?> addQueenRequest(
-        @Valid
-        @NotNull(message = "Error: Datos de entrada nulos.")
-        @RequestBody 
-        QueenPositionDto queen) 
-    {
+    public ResponseEntity<EightQueensResponseDto> getEightQueensSolution() {
+        EightQueensResponseDto response = this.service.solveWithRecursiveTrace();
+        return new ResponseEntity<>(response, HttpStatusCode.valueOf(200));
+    }
+
+    /**
+     * Endpoint GET: /api/recursive/eight-queens
+     * Permite consultar la solución y los pasos de verificación recursiva.
+     */
+    @GetMapping("/recursive/eight-queens")
+    public ResponseEntity<EightQueensResponseDto> getEightQueensSolutionGet() {
+        EightQueensResponseDto response = this.service.solveWithRecursiveTrace();
+        return new ResponseEntity<>(response, HttpStatusCode.valueOf(200));
+    }
+
+    /**
+     * Endpoint POST: /api/recursive/eight-queens/verify
+     * Ejecuta la verificación recursiva completa de las ocho reinas en el tablero 8x8.
+     */
+    @PostMapping("/recursive/eight-queens/verify")
+    public ResponseEntity<?> executeEightQueensVerification() {
+        boolean valid = this.service.verifyAllRecursive(OchoReinasService.SOLUCION, OchoReinasService.TAMANO);
+        
         Map<String, Object> body = new HashMap<>();
+        body.put("valid", valid);
+        body.put("solution", this.service.getSolutionMatrix());
         
-        boolean response = this.service.agregarReina(queen.x(), queen.y());        
-        body.put("response", response);
-        body.put("queens", this.service.getQueens());
-        
-        if (!response) {
-            body.put("message", "Error: No se puede colocar una reina en una posicion donde otra reina ya lo ocupe.");
+        if (!valid) {
+            body.put("message", "Error: Se detectaron amenazas entre reinas.");
             return new ResponseEntity<>(body, HttpStatusCode.valueOf(400));
         }
         
-        body.put("message", "Reina colcada con exito en la posición (" + queen.x() + ", " + queen.y() + ").");
-        return new ResponseEntity<>(body, HttpStatusCode.valueOf(201));
-    }
-    
-    /**
-     * Endpoint PATCH: /recursive/eight-queens
-     * Consume la posicion actual de la reina y la nueva posicion en que estara para moverla.
-     */
-    @PatchMapping("/recursive/eight-queens")
-    public ResponseEntity<?> moverReina(
-        @Valid
-        @NotNull(message = "Error: Datos de entrada nulos.")
-        @RequestBody 
-        MoveQueenDto queenPosData) 
-    {
-        Map<String, Object> body = new HashMap<>();
-        
-        boolean response = this.service.moverReina(queenPosData.x1(), queenPosData.y1(),
-            queenPosData.x2(), queenPosData.y2());
-        body.put("response", response);
-        body.put("queens", this.service.getQueens());
-        
-        if (!response) {
-            body.put("message", "Error: No se puede colocar una reina en una posicion donde otra reina ya lo ocupe.");
-            return new ResponseEntity<>(body, HttpStatusCode.valueOf(400));
-        }
-        
-        body.put("message", "Reina colcada con exito en la posición (" + queenPosData.x2() + ", " + queenPosData.y2() + ").");
-        return new ResponseEntity<>(body, HttpStatusCode.valueOf(200));
-    }
-    
-    /**
-     * Endpoint PUT: /recursive/eight-queens
-     * Limpia el registro de las reinas ingresadas en el tablero.
-     */
-    @PutMapping("/recursive/eight-queens")
-    public ResponseEntity<?> cleanQueensRegister() {
-        Map<String, Object> body = new HashMap<>();
-        boolean response = this.service.reiniciarRegistroDeReinas();
-        
-        body.put("response", response);
-        body.put("queens", this.service.getQueens());
-        body.put("message", "El tablero se limpio correctamente.");
-        
+        body.put("message", "Verificación recursiva exitosa: Las ocho reinas colocadas no se amenazan entre sí.");
         return new ResponseEntity<>(body, HttpStatusCode.valueOf(200));
     }
 
     /**
-     * Endpoint POST: /recursive/eight-queens/verify
-     * Verifica si las ocho reinas que fueron colocadas en el tablero no se amenazan mutuamento,
-     * tal caso se toma como verdadero.
+     * Endpoint PUT: /api/recursive/eight-queens
+     * Notifica el reinicio del tablero en el cliente.
      */
-    @PostMapping("/recursive/eight-queens/verify")
-    public ResponseEntity<?> executeEightQueensVerification() {
+    @PutMapping("/recursive/eight-queens")
+    public ResponseEntity<?> resetQueens() {
         Map<String, Object> body = new HashMap<>();
-        boolean response = this.service.ejecutarVerificacion();
-        
-        body.put("response", response);
-        body.put("queens", this.service.getQueens());
-        
-        if (!response) {
-            body.put("message", "Hay reinas que se amenazan entre si o no hay 8 reinas en total.");
-            return new ResponseEntity<>(body, HttpStatusCode.valueOf(400));
-        }
-        
-        body.put("message", "Las ocho reinas colocadas en el tablero no se amenazan entre si.");
-        return new ResponseEntity<>(response, HttpStatusCode.valueOf(200));
+        body.put("message", "El tablero de 8 reinas se reinició correctamente.");
+        body.put("queens", new int[0][0]);
+        return new ResponseEntity<>(body, HttpStatusCode.valueOf(200));
     }
 }
