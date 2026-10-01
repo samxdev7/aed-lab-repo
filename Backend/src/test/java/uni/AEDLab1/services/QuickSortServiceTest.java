@@ -27,13 +27,17 @@ class QuickSortServiceTest {
         assertTrue(response.steps().length > 0);
 
         // Verify pivot consistency: when pivot is assigned, its card in array snapshot must match pivot value
-        for (QuickSortStepDto step : response.steps()) {
-            if (step.pivot() != null && step.action().equals("compare")) {
-                int pivotValAtIdx = step.array()[step.pivot()];
-                // In compare step, the element at pivot position must remain the pivot
-                assertTrue(pivotValAtIdx >= 1 && pivotValAtIdx <= 67);
-            }
+        assertStepsPivotConsistentRecursive(response.steps(), 0);
+    }
+
+    private void assertStepsPivotConsistentRecursive(QuickSortStepDto[] steps, int i) {
+        if (i >= steps.length) return;
+        QuickSortStepDto step = steps[i];
+        if (step.pivot() != null && step.action().equals("compare")) {
+            int pivotValAtIdx = step.array()[step.pivot()];
+            assertTrue(pivotValAtIdx >= 1 && pivotValAtIdx <= 67);
         }
+        assertStepsPivotConsistentRecursive(steps, i + 1);
     }
 
     @Test

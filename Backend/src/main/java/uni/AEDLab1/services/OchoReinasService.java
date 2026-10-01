@@ -6,7 +6,7 @@ import uni.AEDLab1.models.QueenStepDto;
 
 /**
  * Servicio que gestiona la verificación recursiva del problema de las 8 reinas (8x8).
- * Utiliza exclusivamente arreglos estáticos y validación recursiva pura sin bucles para amenazas.
+ * Utiliza exclusivamente arreglos estáticos y algoritmos recursivos puros sin bucles.
  */
 @Service
 public class OchoReinasService {
@@ -19,13 +19,7 @@ public class OchoReinasService {
      */
     public EightQueensResponseDto solveWithRecursiveTrace() {
         QueenStepDto[] steps = new QueenStepDto[TAMANO];
-        for (int r = 0; r < TAMANO; r++) {
-            int c = SOLUCION[r];
-            boolean safe = isSafeRecursive(r, c, SOLUCION, r - 1);
-            String notation = "REINA " + (r + 1) + " [" + (char) ('A' + c) + (8 - r) + "]";
-            String msg = "Reina " + (r + 1) + " colocada en (" + r + ", " + c + ") y verificada recursivamente sin amenazas.";
-            steps[r] = new QueenStepDto(r + 1, r, c, notation, safe, msg);
-        }
+        fillStepsRecursive(steps, 0);
 
         return new EightQueensResponseDto(
             getSolutionMatrix(),
@@ -33,6 +27,16 @@ public class OchoReinasService {
             verifyAllRecursive(SOLUCION, TAMANO),
             "Las ocho reinas fueron verificadas recursivamente sin amenazas mutuas."
         );
+    }
+
+    private void fillStepsRecursive(QueenStepDto[] steps, int r) {
+        if (r >= TAMANO) return;
+        int c = SOLUCION[r];
+        boolean safe = isSafeRecursive(r, c, SOLUCION, r - 1);
+        String notation = "REINA " + (r + 1) + " [" + (char) ('A' + c) + (8 - r) + "]";
+        String msg = "Reina " + (r + 1) + " colocada en (" + r + ", " + c + ") y verificada recursivamente sin amenazas.";
+        steps[r] = new QueenStepDto(r + 1, r, c, notation, safe, msg);
+        fillStepsRecursive(steps, r + 1);
     }
 
     /**
@@ -63,14 +67,18 @@ public class OchoReinasService {
     public boolean verifyMatrixRecursive(int[][] matrix) {
         if (matrix == null || matrix.length != TAMANO) return false;
         int[] pos = new int[TAMANO];
-        for (int i = 0; i < TAMANO; i++) {
-            if (matrix[i] == null || matrix[i].length < 2) return false;
-            int r = matrix[i][0];
-            int c = matrix[i][1];
-            if (r < 0 || r >= TAMANO || c < 0 || c >= TAMANO) return false;
-            pos[r] = c;
-        }
+        if (!extractPositionsRecursive(matrix, pos, 0)) return false;
         return verifyAllRecursive(pos, TAMANO);
+    }
+
+    private boolean extractPositionsRecursive(int[][] matrix, int[] pos, int i) {
+        if (i >= TAMANO) return true;
+        if (matrix[i] == null || matrix[i].length < 2) return false;
+        int r = matrix[i][0];
+        int c = matrix[i][1];
+        if (r < 0 || r >= TAMANO || c < 0 || c >= TAMANO) return false;
+        pos[r] = c;
+        return extractPositionsRecursive(matrix, pos, i + 1);
     }
 
     /**
@@ -78,10 +86,14 @@ public class OchoReinasService {
      */
     public int[][] getSolutionMatrix() {
         int[][] matrix = new int[TAMANO][2];
-        for (int i = 0; i < TAMANO; i++) {
-            matrix[i][0] = i;
-            matrix[i][1] = SOLUCION[i];
-        }
+        fillSolutionMatrixRecursive(matrix, 0);
         return matrix;
+    }
+
+    private void fillSolutionMatrixRecursive(int[][] matrix, int i) {
+        if (i >= TAMANO) return;
+        matrix[i][0] = i;
+        matrix[i][1] = SOLUCION[i];
+        fillSolutionMatrixRecursive(matrix, i + 1);
     }
 }

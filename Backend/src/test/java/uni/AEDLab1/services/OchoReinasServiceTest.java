@@ -26,12 +26,17 @@ class OchoReinasServiceTest {
         assertNotNull(response.solution());
         assertEquals(8, response.solution().length);
 
-        for (QueenStepDto step : response.steps()) {
-            assertTrue(step.verified(), "Cada paso debe verificarse recursivamente sin amenazas");
-            assertTrue(step.row() >= 0 && step.row() < 8);
-            assertTrue(step.col() >= 0 && step.col() < 8);
-            assertNotNull(step.notation());
-        }
+        assertStepsValidRecursive(response.steps(), 0);
+    }
+
+    private void assertStepsValidRecursive(QueenStepDto[] steps, int i) {
+        if (i >= steps.length) return;
+        QueenStepDto step = steps[i];
+        assertTrue(step.verified(), "Cada paso debe verificarse recursivamente sin amenazas");
+        assertTrue(step.row() >= 0 && step.row() < 8);
+        assertTrue(step.col() >= 0 && step.col() < 8);
+        assertNotNull(step.notation());
+        assertStepsValidRecursive(steps, i + 1);
     }
 
     @Test

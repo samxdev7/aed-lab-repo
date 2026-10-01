@@ -22,19 +22,26 @@ public class QuickSortService {
     private int stepCount;
 
     /**
-     * Valida si el arreglo contiene elementos repetidos usando arreglos estáticos.
+     * Valida si el arreglo contiene elementos repetidos usando recursión pura sobre arreglos estáticos.
      * 
      * @param arr Arreglo a verificar.
      * @return true si existen duplicados, false si todos son únicos.
      */
     public boolean hasDuplicates(int[] arr) {
         if (arr == null) return false;
-        for (int i = 0; i < arr.length; i++) {
-            for (int j = i + 1; j < arr.length; j++) {
-                if (arr[i] == arr[j]) return true;
-            }
-        }
-        return false;
+        return checkDuplicatesOuter(arr, 0);
+    }
+
+    private boolean checkDuplicatesOuter(int[] arr, int i) {
+        if (i >= arr.length) return false;
+        if (checkDuplicatesInner(arr, i, i + 1)) return true;
+        return checkDuplicatesOuter(arr, i + 1);
+    }
+
+    private boolean checkDuplicatesInner(int[] arr, int i, int j) {
+        if (j >= arr.length) return false;
+        if (arr[i] == arr[j]) return true;
+        return checkDuplicatesInner(arr, i, j + 1);
     }
 
     /**
@@ -89,10 +96,8 @@ public class QuickSortService {
     }
 
     /**
-     * Realiza la partición de Quicksort con el pivote asignado al inicio ('start').
-     * Durante la comparación y escaneo de los punteros 'i' y 'j', el pivote permanece
-     * fijo en su posición asignada para evitar inconsistencias visuales en las comparaciones.
-     * Al concluir el cruce de punteros, el pivote se traslada a su posición definitiva 'j'.
+     * Realiza la partición de Quicksort mediante recorrido recursivo puro.
+     * El pivote permanece fijo en 'start' durante todo el escaneo recursivo de punteros.
      * 
      * @param arr Arreglo de trabajo.
      * @param start Índice inicial.
@@ -107,58 +112,12 @@ public class QuickSortService {
             "Partición en rango [" + start + ".." + end + "]. Pivote asignado: " + pivot + " en índice " + start + ".",
             "new_partition", range);
 
-        int i = start + 1;
-        int j = end;
-
-        while (i <= j) {
-            while (i <= end && arr[i] <= pivot) {
-                addStep(arr, start, i, (j >= start && j <= end ? j : null), new int[0], null,
-                    "Avanzando i (" + i + "): [" + arr[i] + "] <= pivote (" + pivot + ").",
-                    "compare", range);
-                i++;
-            }
-            if (i <= end) {
-                addStep(arr, start, i, (j >= start && j <= end ? j : null), new int[0], null,
-                    "Puntero i (" + i + "): [" + arr[i] + "] > pivote (" + pivot + "), se detiene.",
-                    "compare", range);
-            }
-
-            while (j > start && arr[j] > pivot) {
-                addStep(arr, start, (i <= end ? i : null), j, new int[0], null,
-                    "Retrocediendo j (" + j + "): [" + arr[j] + "] > pivote (" + pivot + ").",
-                    "compare", range);
-                j--;
-            }
-            if (j > start) {
-                addStep(arr, start, (i <= end ? i : null), j, new int[0], null,
-                    "Puntero j (" + j + "): [" + arr[j] + "] <= pivote (" + pivot + "), se detiene.",
-                    "compare", range);
-            }
-
-            if (i < j) {
-                addStep(arr, start, i, j, new int[]{i, j}, null,
-                    "Par detectado: arr[" + i + "]=" + arr[i] + " y arr[" + j + "]=" + arr[j] + ". Preparando intercambio...",
-                    "found", range);
-
-                swap(arr, i, j);
-
-                addStep(arr, start, i, j, new int[]{i, j}, new SwapLineDto(i, j),
-                    "Intercambiando arr[" + i + "] con arr[" + j + "]...",
-                    "swap", range);
-
-                addStep(arr, start, i, j, new int[0], null,
-                    "Intercambio completado.",
-                    "done", range);
-
-                i++;
-                j--;
-            }
-        }
+        int j = scanAndSwapRecursive(arr, pivot, start, end, range, start + 1, end);
 
         // Punteros cruzados: ubicar el pivote en su posición final definitiva 'j'
         if (start != j) {
-            addStep(arr, start, (i <= end ? i : null), (j >= start ? j : null), new int[]{start, j}, null,
-                "Punteros cruzados (i=" + i + " > j=" + j + "). Colocando pivote " + pivot + " en posición definitiva [" + j + "].",
+            addStep(arr, start, null, (j >= start ? j : null), new int[]{start, j}, null,
+                "Punteros cruzados. Colocando pivote " + pivot + " en posición definitiva [" + j + "].",
                 "found", range);
 
             swap(arr, start, j);
@@ -177,6 +136,65 @@ public class QuickSortService {
         }
 
         return j;
+    }
+
+    private int advanceLeftRecursive(int[] arr, int pivot, int i, int end, int j, int start, int[] range) {
+        if (i > end || arr[i] > pivot) {
+            if (i <= end) {
+                addStep(arr, start, i, (j >= start && j <= end ? j : null), new int[0], null,
+                    "Puntero i (" + i + "): [" + arr[i] + "] > pivote (" + pivot + "), se detiene.",
+                    "compare", range);
+            }
+            return i;
+        }
+        addStep(arr, start, i, (j >= start && j <= end ? j : null), new int[0], null,
+            "Avanzando i (" + i + "): [" + arr[i] + "] <= pivote (" + pivot + ").",
+            "compare", range);
+        return advanceLeftRecursive(arr, pivot, i + 1, end, j, start, range);
+    }
+
+    private int retreatRightRecursive(int[] arr, int pivot, int j, int start, int i, int end, int[] range) {
+        if (j <= start || arr[j] <= pivot) {
+            if (j > start) {
+                addStep(arr, start, (i <= end ? i : null), j, new int[0], null,
+                    "Puntero j (" + j + "): [" + arr[j] + "] <= pivote (" + pivot + "), se detiene.",
+                    "compare", range);
+            }
+            return j;
+        }
+        addStep(arr, start, (i <= end ? i : null), j, new int[0], null,
+            "Retrocediendo j (" + j + "): [" + arr[j] + "] > pivote (" + pivot + ").",
+            "compare", range);
+        return retreatRightRecursive(arr, pivot, j - 1, start, i, end, range);
+    }
+
+    private int scanAndSwapRecursive(int[] arr, int pivot, int start, int end, int[] range, int i, int j) {
+        if (i > j) {
+            return j;
+        }
+
+        int nextI = advanceLeftRecursive(arr, pivot, i, end, j, start, range);
+        int nextJ = retreatRightRecursive(arr, pivot, j, start, nextI, end, range);
+
+        if (nextI < nextJ) {
+            addStep(arr, start, nextI, nextJ, new int[]{nextI, nextJ}, null,
+                "Par detectado: arr[" + nextI + "]=" + arr[nextI] + " y arr[" + nextJ + "]=" + arr[nextJ] + ". Preparando intercambio...",
+                "found", range);
+
+            swap(arr, nextI, nextJ);
+
+            addStep(arr, start, nextI, nextJ, new int[]{nextI, nextJ}, new SwapLineDto(nextI, nextJ),
+                "Intercambiando arr[" + nextI + "] con arr[" + nextJ + "]...",
+                "swap", range);
+
+            addStep(arr, start, nextI, nextJ, new int[0], null,
+                "Intercambio completado.",
+                "done", range);
+
+            return scanAndSwapRecursive(arr, pivot, start, end, range, nextI + 1, nextJ - 1);
+        } else {
+            return nextJ;
+        }
     }
 
     /**
