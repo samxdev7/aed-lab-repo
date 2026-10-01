@@ -9,69 +9,69 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class QuickSortServiceTest {
 
-    private QuickSortService service;
+    private QuickSortService servicio;
 
     @BeforeEach
     void setUp() {
-        service = new QuickSortService();
+        servicio = new QuickSortService();
     }
 
     @Test
-    void testExecuteQuickSort_ValidArray() {
-        int[] input = {67, 9, 7, 12, 15, 6, 3, 1, 4, 2};
-        QuickSortResponseDto response = service.executeQuickSort(input);
+    void testEjecutarQuickSort_ArregloValido() {
+        int[] entrada = {67, 9, 7, 12, 15, 6, 3, 1, 4, 2};
+        QuickSortResponseDto respuesta = servicio.ejecutarQuickSort(entrada);
 
-        assertNotNull(response);
-        assertNotNull(response.sortedArray());
-        assertArrayEquals(new int[]{1, 2, 3, 4, 6, 7, 9, 12, 15, 67}, response.sortedArray());
-        assertTrue(response.steps().length > 0);
+        assertNotNull(respuesta);
+        assertNotNull(respuesta.arregloOrdenado());
+        assertArrayEquals(new int[]{1, 2, 3, 4, 6, 7, 9, 12, 15, 67}, respuesta.arregloOrdenado());
+        assertTrue(respuesta.pasos().length > 0);
 
-        // Verify pivot consistency: when pivot is assigned, its card in array snapshot must match pivot value
-        assertStepsPivotConsistentRecursive(response.steps(), 0);
+        // Verificar consistencia del pivote: cuando el pivote se asigna, su valor en el arreglo coincide
+        assertPasosPivoteConsistenteRecursivo(respuesta.pasos(), 0);
     }
 
-    private void assertStepsPivotConsistentRecursive(QuickSortStepDto[] steps, int i) {
-        if (i >= steps.length) return;
-        QuickSortStepDto step = steps[i];
-        if (step.pivot() != null && step.action().equals("compare")) {
-            int pivotValAtIdx = step.array()[step.pivot()];
-            assertTrue(pivotValAtIdx >= 1 && pivotValAtIdx <= 67);
+    private void assertPasosPivoteConsistenteRecursivo(QuickSortStepDto[] pasos, int i) {
+        if (i >= pasos.length) return;
+        QuickSortStepDto paso = pasos[i];
+        if (paso.pivote() != null && paso.accion().equals("compare")) {
+            int valorPivoteEnIndice = paso.arreglo()[paso.pivote()];
+            assertTrue(valorPivoteEnIndice >= 1 && valorPivoteEnIndice <= 67);
         }
-        assertStepsPivotConsistentRecursive(steps, i + 1);
+        assertPasosPivoteConsistenteRecursivo(pasos, i + 1);
     }
 
     @Test
-    void testExecuteQuickSort_ReversedArray() {
-        int[] input = {10, 9, 8, 7, 6, 5, 4, 3, 2, 1};
-        QuickSortResponseDto response = service.executeQuickSort(input);
+    void testEjecutarQuickSort_ArregloInvertido() {
+        int[] entrada = {10, 9, 8, 7, 6, 5, 4, 3, 2, 1};
+        QuickSortResponseDto respuesta = servicio.ejecutarQuickSort(entrada);
 
-        assertNotNull(response);
-        assertArrayEquals(new int[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, response.sortedArray());
+        assertNotNull(respuesta);
+        assertArrayEquals(new int[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, respuesta.arregloOrdenado());
     }
 
     @Test
-    void testExecuteQuickSort_AlreadySortedArray() {
-        int[] input = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
-        QuickSortResponseDto response = service.executeQuickSort(input);
+    void testEjecutarQuickSort_ArregloYaOrdenado() {
+        int[] entrada = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+        QuickSortResponseDto respuesta = servicio.ejecutarQuickSort(entrada);
 
-        assertNotNull(response);
-        assertArrayEquals(new int[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, response.sortedArray());
+        assertNotNull(respuesta);
+        assertArrayEquals(new int[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, respuesta.arregloOrdenado());
     }
 
     @Test
-    void testExecuteQuickSort_InvalidInputs() {
+    void testEjecutarQuickSort_EntradasInvalidas() {
         // null
-        assertNull(service.executeQuickSort(null));
-        // Wrong size
-        assertNull(service.executeQuickSort(new int[]{1, 2, 3}));
-        // Duplicates
-        assertNull(service.executeQuickSort(new int[]{1, 2, 3, 4, 5, 5, 7, 8, 9, 10}));
+        assertNull(servicio.ejecutarQuickSort(null));
+        // Tamaño incorrecto
+        assertNull(servicio.ejecutarQuickSort(new int[]{1, 2, 3}));
+        // Duplicados
+        assertNull(servicio.ejecutarQuickSort(new int[]{1, 2, 3, 4, 5, 5, 7, 8, 9, 10}));
     }
 
     @Test
-    void testHasDuplicates() {
-        assertTrue(service.hasDuplicates(new int[]{1, 2, 3, 2}));
-        assertFalse(service.hasDuplicates(new int[]{1, 2, 3, 4}));
-        assertFalse(service.hasDuplicates(null));
+    void testTieneDuplicados() {
+        assertTrue(servicio.tieneDuplicados(new int[]{1, 2, 3, 2}));
+        assertFalse(servicio.tieneDuplicados(new int[]{1, 2, 3, 4}));
+        assertFalse(servicio.tieneDuplicados(null));
     }
 }
