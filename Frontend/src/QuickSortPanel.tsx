@@ -209,8 +209,9 @@ export const QuickSortPanel: React.FC<QuickSortPanelProps> = ({ onBack }) => {
           await delay(300);
         } else {
           // Compare step
-          const cardAtI = currentCards.find(c => c.position === step.i);
-          const val = cardAtI ? cardAtI.value : 0;
+          const activePos = step.i !== null ? step.i : step.j;
+          const activeCard = currentCards.find(c => c.position === activePos);
+          const val = activeCard ? activeCard.value : 0;
           const freq = 200 + (val * 5); 
           playBeep(freq, 'sine', 0.04);
           await delay(450);
