@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import joksanImg from './assets/Joksan.jpg';
 import gabrielaImg from './assets/Gabriela.jpg';
 import samuelImg from './assets/Samuel.jpg';
@@ -18,6 +18,28 @@ export const PresentationPanel: React.FC<PresentationPanelProps> = ({ onNext }) 
     playClickSound();
     onNext();
   };
+
+    // Minipanel de mensaje: guarda el índice del integrante seleccionado
+  const [selected, setSelected] = useState<number | null>(null);
+
+  const openModal = (index: number) => {
+    playClickSound();
+    setSelected(index);
+  };
+
+  const closeModal = () => {
+    playClickSound();
+    setSelected(null);
+  };
+
+  // Cerrar con la tecla Esc
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSelected(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   // Fondo Dinámico de Nodos/Algoritmos
   useEffect(() => {
@@ -104,6 +126,10 @@ export const PresentationPanel: React.FC<PresentationPanelProps> = ({ onNext }) 
       ringColor: "border-purple-500/60 border-t-purple-300",
       carnetColor: "text-purple-400",
       lineGradient: "from-purple-500/80 to-indigo-500/80",
+      modalBorder: "border-purple-400/60",
+      modalGlow: "shadow-[0_0_80px_rgba(168,85,247,0.35)]",
+      message: "Holaaa, a mi me toco la parte del frontend, la verdad lo puede confirmar con mis compañeros me encanta el frontend amo el diseño y deseo seguir mejorando en ello, se que estos laboratorios me han ayudado a implementar y despertar aun mas mi creatividad con respecto al diseño y claro usar la IA a mi favor jajaja, con respecto al diseño de todo el lab puedo decir que lo elegi yo todo este toque de efectos neón me parece muy bonito.",
+      contributions: ["Frontend completo del panel de las 8 Reinas.", "Frontend completo del panel de Ordenamiento Rápido.", "Revisión general de los paneles para que siguiera al pie de la letra el diseño general del laboratorio.", "Implementación de mejoras de diseño de igual manera generalmente a todo el laboratorio."],
     },
     {
       name: "Gabriela Abigail Ruiz Rodríguez",
@@ -117,6 +143,10 @@ export const PresentationPanel: React.FC<PresentationPanelProps> = ({ onNext }) 
       ringColor: "border-amber-500/60 border-t-amber-300",
       carnetColor: "text-amber-400",
       lineGradient: "from-amber-500/80 to-orange-500/80",
+      modalBorder: "border-amber-400/60",
+      modalGlow: "shadow-[0_0_80px_rgba(251,191,36,0.3)]",
+      message: "Hellouu, me gusta mucho aprender cosas nuevas y descubrir cómo funcionan. Reconozco que no soy la mejor, pero siempre intento dar lo mejor de mí a pesar de las dificultades. Durante estos labs he aprendido bastante gracias a mis compañeros y a las experiencias que hemos tenido trabajando. También he tenido la oportunidad de aprender tanto de backend como de frontend, lo cual me ha permitido conocer herramientas y cosas que antes no manejaba. Me gusta aprender paso a paso, investigar cuando no entiendo algo y buscar la manera de resolver los problemas que van apareciendo. Espero seguir aprendiendo, mejorar mucho más mis habilidades y poder aportar más al equipo.",
+      contributions: ["Backend de las torres de Hanoi.", "Backend de el salto de ranita.", "Frontend de las torres de Hanoi.", "Frontend de el salto de ranita.", "Tenerle paciencia a mis compitas y sus quejas de mis animaciones, ajskjsdkjsdjsdja Bromitaaa."],
     },
     {
       name: "Samuel Enrique Rueda Ruiz",
@@ -130,8 +160,20 @@ export const PresentationPanel: React.FC<PresentationPanelProps> = ({ onNext }) 
       ringColor: "border-cyan-500/60 border-t-cyan-300",
       carnetColor: "text-cyan-400",
       lineGradient: "from-cyan-500/80 to-blue-500/80",
+            modalBorder: "border-cyan-400/60",
+      modalGlow: "shadow-[0_0_80px_rgba(34,211,238,0.3)]",
+      message: "Buenas, además de ser un autodidacta con la potencia a un overclock enfermo, me la paso aprendiendo y volviéndome más enfermo cada día por pura pasión. Entre lo que me gusta hacer es explotar a mis compañeros de clases, estudiar matemática (no importa que rama, es lo segundo más bello que tiene este universo), poner en práctica desarrollo web, desbaratar mi computadora con Linux, volverme más pro hacker, etc.",
+      contributions: [
+      "Backend completo de las ocho reinas.",
+      "Backend completo de Quicksort.",
+      "Mejoras leves de Frontend de Quicksort.",
+      "Supervisión y control de calidad de código y versionado de laboratorio.",
+      "Documento de lab #3 (tocó ..... CONIOOOOOOOOOOOOOOO).",
+      ],
     },
   ];
+
+  const selectedMember = selected !== null ? members[selected] : null;
 
   return (
     <div className="relative h-[100dvh] w-screen bg-[#090b16] text-white flex flex-col justify-between p-3 sm:p-4 overflow-hidden select-none">
@@ -139,7 +181,7 @@ export const PresentationPanel: React.FC<PresentationPanelProps> = ({ onNext }) 
       {/* Importación de fuentes legibles y limpias */}
       <style>
         {`
-          @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
+          @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Lora:ital,wght@0,400;0,500;0,600;1,400&display=swap');
           
           .font-tech-header {
             font-family: 'Rajdhani', sans-serif;
@@ -149,6 +191,10 @@ export const PresentationPanel: React.FC<PresentationPanelProps> = ({ onNext }) 
             font-family: 'Plus Jakarta Sans', sans-serif;
           }
 
+          .font-elegant {
+            font-family: 'Century Schoolbook', 'Century', 'Lora', Georgia, serif;
+          }
+
           @keyframes spin-slow {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
@@ -156,6 +202,16 @@ export const PresentationPanel: React.FC<PresentationPanelProps> = ({ onNext }) 
           .animate-spin-slow {
             animation: spin-slow 12s linear infinite;
           }
+            @keyframes modal-in {
+            0% { opacity: 0; transform: translateY(24px) scale(0.92); }
+            100% { opacity: 1; transform: translateY(0) scale(1); }
+          }
+          @keyframes backdrop-in {
+            0% { opacity: 0; }
+            100% { opacity: 1; }
+          }
+          .animate-modal-in { animation: modal-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both; }
+          .animate-backdrop-in { animation: backdrop-in 0.25s ease-out both; }
         `}
       </style>
 
@@ -240,6 +296,7 @@ export const PresentationPanel: React.FC<PresentationPanelProps> = ({ onNext }) 
           <div
             key={index}
             onMouseEnter={playHoverSound}
+            onClick={() => openModal(index)}
             className={`group relative bg-[#0f1426]/85 backdrop-blur-xl border ${member.borderColor} ${member.accentGlow} rounded-3xl p-3 flex flex-col items-center text-center transition-all duration-500 hover:-translate-y-3 cursor-pointer`}
           >
             {/* Indicador LED Neón de Estado */}
@@ -262,8 +319,8 @@ export const PresentationPanel: React.FC<PresentationPanelProps> = ({ onNext }) 
             </div>
 
             {/* Badge de Rol / Etiqueta Tech - Ahora súper legible */}
-            <span className={`px-2 py-1 rounded-md text-[9px] sm:text-[10px] font-bold tracking-wider uppercase border ${member.badgeBg} font-tech-header mb-1`}>
-              {member.role}
+            <span className="mt-1 text-[9px] uppercase tracking-widest text-slate-400/70 group-hover:text-white transition-colors">
+              Clic para conocerme
             </span>
 
             {/* Nombre del Integrante */}
@@ -303,6 +360,82 @@ export const PresentationPanel: React.FC<PresentationPanelProps> = ({ onNext }) 
           </svg>
         </button>
       </footer>
+      {/* ===== INICIO MINIPANEL DE MENSAJE ===== */}
+      {selectedMember && (
+        <div
+          className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-[#03060d]/80 backdrop-blur-md animate-backdrop-in"
+          onClick={closeModal}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className={`relative w-full max-w-4xl max-h-[90dvh] overflow-y-auto rounded-3xl border ${selectedMember.modalBorder} ${selectedMember.modalGlow} bg-[#0f1426]/95 p-5 sm:p-7 font-tech-body animate-modal-in`}
+          >
+            {/* Botón cerrar */}
+            <button
+              onClick={closeModal}
+              onMouseEnter={playHoverSound}
+              aria-label="Cerrar"
+              className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center text-white bg-white/10 hover:bg-white/20 border border-white/20 hover:rotate-90 active:scale-90 transition-all duration-300 cursor-pointer"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            </button>
+
+            {/* Cabecera: foto + datos (centrada) */}
+            <div className="flex items-center justify-center gap-5 px-10">
+              <div className="relative w-16 h-16 sm:w-20 sm:h-20 shrink-0 flex items-center justify-center">
+                <div className={`absolute inset-0 rounded-full border-2 border-dashed ${selectedMember.ringColor} animate-spin-slow`} />
+                <img
+                  src={selectedMember.image}
+                  alt={selectedMember.name}
+                  className="w-12 h-12 sm:w-16 sm:h-16 rounded-full object-cover border-2 border-white/20"
+                />
+              </div>
+              <div className="min-w-0 text-center">
+                <span className={`inline-block px-2 py-1 rounded-md text-[10px] font-bold tracking-wider uppercase border ${selectedMember.badgeBg} font-tech-header`}>
+                  {selectedMember.role}
+                </span>
+                <h2 className="mt-1 text-lg sm:text-2xl font-extrabold text-white leading-tight">
+                  {selectedMember.name}
+                </h2>
+                <span className={`block text-sm ${selectedMember.carnetColor} tracking-widest font-tech-header font-bold`}>
+                  {selectedMember.carnet}
+                </span>
+              </div>
+            </div>
+
+            <span className={`block h-1 w-full rounded-full bg-gradient-to-r ${selectedMember.lineGradient} my-4 opacity-70`} />
+
+            {/* Contenido: mensaje + aportes */}
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-5">
+              <div className="md:col-span-3">
+                <h3 className={`font-tech-header text-sm tracking-[0.2em] uppercase mb-2 ${selectedMember.carnetColor}`}>
+                  Sobre mí
+                </h3>
+                <p className="font-elegant text-base sm:text-lg leading-relaxed text-slate-100 text-justify">
+                  {selectedMember.message}
+                </p>
+              </div>
+
+              <div className="md:col-span-2 rounded-2xl bg-white/5 border border-white/10 p-4">
+                <h3 className={`font-tech-header text-sm tracking-[0.2em] uppercase mb-2 ${selectedMember.carnetColor}`}>
+                  Aportes al Laboratorio #3
+                </h3>
+                <ul className="space-y-2 text-left">
+                  {selectedMember.contributions.map((item, i) => (
+                    <li key={i} className="font-elegant flex items-start gap-2 text-sm sm:text-base text-slate-200 leading-snug">
+                      <span className={`mt-1.5 w-2 h-2 shrink-0 rounded-full ${selectedMember.dotColor}`} />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ===== FIN MINIPANEL DE MENSAJE ===== */}
     </div>
   );
 };
