@@ -15,9 +15,4 @@ public record EightQueensResponseDto(
     @JsonProperty("steps") QueenStepDto[] pasos,
     @JsonProperty("valid") boolean esValido,
     @JsonProperty("message") String mensaje
-) {
-    public int[][] solution() { return solucion; }
-    public QueenStepDto[] steps() { return pasos; }
-    public boolean valid() { return esValido; }
-    public String message() { return mensaje; }
-}
+) {}

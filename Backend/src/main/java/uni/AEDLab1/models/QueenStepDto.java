@@ -22,11 +22,4 @@ public record QueenStepDto(
     @JsonProperty("notation") String notacion,
     @JsonProperty("verified") boolean verificado,
     @JsonProperty("message") String mensaje
-) {
-    public int step() { return paso; }
-    public int row() { return fila; }
-    public int col() { return columna; }
-    public String notation() { return notacion; }
-    public boolean verified() { return verificado; }
-    public String message() { return mensaje; }
-}
+) {}

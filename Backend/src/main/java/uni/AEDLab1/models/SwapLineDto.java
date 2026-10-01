@@ -14,7 +14,4 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 public record SwapLineDto(
     @JsonProperty("from") int origen,
     @JsonProperty("to") int destino
-) {
-    public int from() { return origen; }
-    public int to() { return destino; }
-}
+) {}

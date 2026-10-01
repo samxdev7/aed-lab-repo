@@ -22,6 +22,4 @@ public record QuickSortArrayDto(
     @Size(min = 10, max = 10, message = "El arreglo debe tener obligatoriamente 10 elementos.")
     @JsonProperty("array")
     int[] arreglo
-) {
-    public int[] array() { return arreglo; }
-}
+) {}

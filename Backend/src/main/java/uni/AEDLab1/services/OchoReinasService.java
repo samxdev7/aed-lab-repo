@@ -34,13 +34,6 @@ public class OchoReinasService {
         );
     }
 
-    /**
-     * Método de compatibilidad hacia atrás para resolver con traza recursiva.
-     */
-    public EightQueensResponseDto solveWithRecursiveTrace() {
-        return resolverConTrazaRecursiva();
-    }
-
     private void llenarPasosRecursivo(QueenStepDto[] pasos, int fila) {
         if (fila >= TAMANO) return;
         int columna = SOLUCION[fila];
@@ -70,13 +63,6 @@ public class OchoReinasService {
     }
 
     /**
-     * Método de compatibilidad hacia atrás para esSeguroRecursivo.
-     */
-    public boolean isSafeRecursive(int row, int col, int[] positions, int targetIndex) {
-        return esSeguroRecursivo(row, col, positions, targetIndex);
-    }
-
-    /**
      * Verifica recursivamente un arreglo de posiciones de reinas de tamaño n.
      * 
      * @param posiciones Arreglo de posiciones.
@@ -91,13 +77,6 @@ public class OchoReinasService {
     }
 
     /**
-     * Método de compatibilidad hacia atrás para verificarTodoRecursivo.
-     */
-    public boolean verifyAllRecursive(int[] positions, int n) {
-        return verificarTodoRecursivo(positions, n);
-    }
-
-    /**
      * Verifica recursivamente si una matriz de coordenadas [8][2] es válida.
      * 
      * @param matriz Matriz de coordenadas de las reinas.
@@ -108,13 +87,6 @@ public class OchoReinasService {
         int[] posiciones = new int[TAMANO];
         if (!extraerPosicionesRecursivo(matriz, posiciones, 0)) return false;
         return verificarTodoRecursivo(posiciones, TAMANO);
-    }
-
-    /**
-     * Método de compatibilidad hacia atrás para verificarMatrizRecursiva.
-     */
-    public boolean verifyMatrixRecursive(int[][] matrix) {
-        return verificarMatrizRecursiva(matrix);
     }
 
     private boolean extraerPosicionesRecursivo(int[][] matriz, int[] posiciones, int i) {
@@ -136,13 +108,6 @@ public class OchoReinasService {
         int[][] matriz = new int[TAMANO][2];
         llenarMatrizSolucionRecursivo(matriz, 0);
         return matriz;
-    }
-
-    /**
-     * Método de compatibilidad hacia atrás para obtenerMatrizSolucion.
-     */
-    public int[][] getSolutionMatrix() {
-        return obtenerMatrizSolucion();
     }
 
     private void llenarMatrizSolucionRecursivo(int[][] matriz, int i) {

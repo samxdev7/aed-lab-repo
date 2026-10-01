@@ -18,7 +18,6 @@ import uni.AEDLab1.models.SwapLineDto;
 public class QuickSortService {
 
     public static final int TAMANO = 10;
-    public static final int SIZE = TAMANO;
     private QuickSortStepDto[] pasos;
     private int conteoPasos;
 
@@ -31,13 +30,6 @@ public class QuickSortService {
     public boolean tieneDuplicados(int[] arreglo) {
         if (arreglo == null) return false;
         return verificarDuplicadosExterior(arreglo, 0);
-    }
-
-    /**
-     * Método de compatibilidad hacia atrás para hasDuplicates.
-     */
-    public boolean hasDuplicates(int[] arr) {
-        return tieneDuplicados(arr);
     }
 
     private boolean verificarDuplicadosExterior(int[] arreglo, int i) {
@@ -83,31 +75,6 @@ public class QuickSortService {
     }
 
     /**
-     * Método de compatibilidad hacia atrás para executeQuickSort.
-     */
-    public synchronized QuickSortResponseDto executeQuickSort(int[] arrayInput) {
-        return ejecutarQuickSort(arrayInput);
-    }
-
-    /**
-     * Versión simplificada que retorna el arreglo ordenado (retrocompatibilidad).
-     * 
-     * @param arregloEntrada Arreglo a ordenar.
-     * @return Arreglo ordenado o null si es inválido.
-     */
-    public int[] ordenarRapido(int[] arregloEntrada) {
-        QuickSortResponseDto resultado = ejecutarQuickSort(arregloEntrada);
-        return resultado != null ? resultado.arregloOrdenado() : null;
-    }
-
-    /**
-     * Método de compatibilidad hacia atrás para quickSort.
-     */
-    public int[] quickSort(int[] arrayInput) {
-        return ordenarRapido(arrayInput);
-    }
-
-    /**
      * Función recursiva de ordenamiento por división y conquista.
      * 
      * @param arreglo Arreglo de trabajo.
@@ -119,13 +86,6 @@ public class QuickSortService {
         int p = particionar(arreglo, inicio, fin);
         reducir(arreglo, inicio, p - 1);
         reducir(arreglo, p + 1, fin);
-    }
-
-    /**
-     * Método de compatibilidad hacia atrás para reduce.
-     */
-    public void reduce(int[] arr, int start, int end) {
-        reducir(arr, start, end);
     }
 
     /**
@@ -241,13 +201,6 @@ public class QuickSortService {
         int temporal = arreglo[i];
         arreglo[i] = arreglo[j];
         arreglo[j] = temporal;
-    }
-
-    /**
-     * Método de compatibilidad hacia atrás para swap.
-     */
-    public void swap(int[] arr, int i, int j) {
-        intercambiar(arr, i, j);
     }
 
     private void agregarPaso(int[] arreglo, Integer pivote, Integer i, Integer j,

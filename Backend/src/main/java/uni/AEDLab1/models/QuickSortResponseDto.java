@@ -14,8 +14,4 @@ public record QuickSortResponseDto(
     @JsonProperty("sortedArray") int[] arregloOrdenado,
     @JsonProperty("steps") QuickSortStepDto[] pasos,
     @JsonProperty("message") String mensaje
-) {
-    public int[] sortedArray() { return arregloOrdenado; }
-    public QuickSortStepDto[] steps() { return pasos; }
-    public String message() { return mensaje; }
-}
+) {}

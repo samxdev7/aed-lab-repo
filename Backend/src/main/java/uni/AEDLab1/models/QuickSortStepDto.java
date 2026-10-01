@@ -28,12 +28,4 @@ public record QuickSortStepDto(
     @JsonProperty("phaseText") String textoFase,
     @JsonProperty("action") String accion,
     @JsonProperty("range") int[] rango
-) {
-    public int[] array() { return arreglo; }
-    public Integer pivot() { return pivote; }
-    public int[] elevated() { return elevados; }
-    public SwapLineDto swapLine() { return lineaIntercambio; }
-    public String phaseText() { return textoFase; }
-    public String action() { return accion; }
-    public int[] range() { return rango; }
-}
+) {}
