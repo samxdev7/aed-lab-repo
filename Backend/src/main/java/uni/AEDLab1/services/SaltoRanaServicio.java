@@ -36,61 +36,69 @@ public class SaltoRanaServicio {
     private char[] construirEstadoInicial(int ranasPorLado) {
         int tamanoTotal = (ranasPorLado * 2) + 1;
         char[] estadoInicial = new char[tamanoTotal];
-
-        for (int indice = 0; indice < ranasPorLado; indice++) {
-            estadoInicial[indice] = RANA_VERDE;
-        }
-        estadoInicial[ranasPorLado] = ESPACIO_VACIO;
-        for (int indice = ranasPorLado + 1; indice < tamanoTotal; indice++) {
-            estadoInicial[indice] = RANA_CAFE;
-        }
+        llenarEstadoInicial(estadoInicial, 0, ranasPorLado);
         return estadoInicial;
+    }
+
+    private void llenarEstadoInicial(char[] estado, int indice, int ranasPorLado) {
+        if (indice >= estado.length) return;
+        if (indice < ranasPorLado) {
+            estado[indice] = RANA_VERDE;
+        } else if (indice == ranasPorLado) {
+            estado[indice] = ESPACIO_VACIO;
+        } else {
+            estado[indice] = RANA_CAFE;
+        }
+        llenarEstadoInicial(estado, indice + 1, ranasPorLado);
     }
 
     private boolean esEstadoSolucion(char[] estado) {
         int mitad = estado.length / 2;
-        for (int indice = 0; indice < mitad; indice++) {
-            if (estado[indice] != RANA_CAFE) return false;
-        }
-        if (estado[mitad] != ESPACIO_VACIO) return false;
-        for (int indice = mitad + 1; indice < estado.length; indice++) {
-            if (estado[indice] != RANA_VERDE) return false;
-        }
-        return true;
+        return verificarSolucionRecursiva(estado, 0, mitad);
     }
 
-    // Retorna true si desde "estado" se logra llegar a la solución final.
+    private boolean verificarSolucionRecursiva(char[] estado, int indice, int mitad) {
+        if (indice >= estado.length) return true;
+        if (indice < mitad && estado[indice] != RANA_CAFE) return false;
+        if (indice == mitad && estado[indice] != ESPACIO_VACIO) return false;
+        if (indice > mitad && estado[indice] != RANA_VERDE) return false;
+        return verificarSolucionRecursiva(estado, indice + 1, mitad);
+    }
+
+    // Retorna true si desde "estado" se logra llegar a la solución final (recorrido recursivo puro).
     private boolean intentarResolverDesde(char[] estado) {
         if (esEstadoSolucion(estado)) {
             return true;
         }
+        return explorarPosicionRecursiva(estado, 0, estado.length - 1);
+    }
 
-        int ultimoIndice = estado.length - 1;
+    private boolean explorarPosicionRecursiva(char[] estado, int posicion, int ultimoIndice) {
+        if (posicion > ultimoIndice) {
+            return false;
+        }
 
-        for (int posicion = 0; posicion <= ultimoIndice; posicion++) {
-
-            if (estado[posicion] == RANA_VERDE) {
-                if (intentarMovimiento(estado, posicion, posicion + 1, ultimoIndice, RANA_VERDE)) {
-                    return true;
-                }
-                if (posicion + 2 <= ultimoIndice && estado[posicion + 1] == RANA_CAFE
-                    && intentarMovimiento(estado, posicion, posicion + 2, ultimoIndice, RANA_VERDE)) {
-                    return true;
-                }
+        if (estado[posicion] == RANA_VERDE) {
+            if (intentarMovimiento(estado, posicion, posicion + 1, ultimoIndice, RANA_VERDE)) {
+                return true;
             }
-
-            if (estado[posicion] == RANA_CAFE) {
-                if (intentarMovimiento(estado, posicion, posicion - 1, ultimoIndice, RANA_CAFE)) {
-                    return true;
-                }
-                if (posicion - 2 >= 0 && estado[posicion - 1] == RANA_VERDE
-                    && intentarMovimiento(estado, posicion, posicion - 2, ultimoIndice, RANA_CAFE)) {
-                    return true;
-                }
+            if (posicion + 2 <= ultimoIndice && estado[posicion + 1] == RANA_CAFE
+                && intentarMovimiento(estado, posicion, posicion + 2, ultimoIndice, RANA_VERDE)) {
+                return true;
             }
         }
 
-        return false;
+        if (estado[posicion] == RANA_CAFE) {
+            if (intentarMovimiento(estado, posicion, posicion - 1, ultimoIndice, RANA_CAFE)) {
+                return true;
+            }
+            if (posicion - 2 >= 0 && estado[posicion - 1] == RANA_VERDE
+                && intentarMovimiento(estado, posicion, posicion - 2, ultimoIndice, RANA_CAFE)) {
+                return true;
+            }
+        }
+
+        return explorarPosicionRecursiva(estado, posicion + 1, ultimoIndice);
     }
 
     private boolean intentarMovimiento(

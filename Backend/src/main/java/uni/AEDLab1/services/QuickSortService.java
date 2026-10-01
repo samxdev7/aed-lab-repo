@@ -1,183 +1,223 @@
 package uni.AEDLab1.services;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.Arrays;
 import org.springframework.stereotype.Service;
 import uni.AEDLab1.models.QuickSortResponseDto;
 import uni.AEDLab1.models.QuickSortStepDto;
 import uni.AEDLab1.models.SwapLineDto;
 
 /**
- * Servicio que maneja el algoritmo de ordenamiento por recursión Quicksort
- * bajo el esquema de partición original de Hoare.
- * Genera la traza paso a paso para la animación interactiva en el Frontend.
+ * Servicio que gestiona el algoritmo de ordenamiento recursivo Quicksort.
+ * Trabaja exclusivamente con arreglos estáticos nativos y mantiene la posición
+ * del pivote fija durante las comparaciones de índices hasta su ubicación final.
  * 
  * @author samxdev7
- * @version 2.0
+ * @version 3.0
  */
 @Service
 public class QuickSortService {
 
-    public static final int SIZE = 10;
+    public static final int TAMANO = 10;
+    private QuickSortStepDto[] pasos;
+    private int conteoPasos;
 
     /**
-     * Valida si el arreglo contiene elementos repetidos.
+     * Valida si el arreglo contiene elementos repetidos usando recursión pura sobre arreglos estáticos.
      * 
-     * @param arr Arreglo a verificar.
+     * @param arreglo Arreglo a verificar.
      * @return true si existen duplicados, false si todos son únicos.
      */
-    public boolean hasDuplicates(int[] arr) {
-        if (arr == null) return false;
-        Set<Integer> seen = new HashSet<>();
-        for (int val : arr) {
-            if (!seen.add(val)) {
-                return true;
-            }
-        }
-        return false;
+    public boolean tieneDuplicados(int[] arreglo) {
+        if (arreglo == null) return false;
+        return verificarDuplicadosExterior(arreglo, 0);
+    }
+
+    private boolean verificarDuplicadosExterior(int[] arreglo, int i) {
+        if (i >= arreglo.length) return false;
+        if (verificarDuplicadosInterior(arreglo, i, i + 1)) return true;
+        return verificarDuplicadosExterior(arreglo, i + 1);
+    }
+
+    private boolean verificarDuplicadosInterior(int[] arreglo, int i, int j) {
+        if (j >= arreglo.length) return false;
+        if (arreglo[i] == arreglo[j]) return true;
+        return verificarDuplicadosInterior(arreglo, i, j + 1);
     }
 
     /**
-     * Ejecuta el ordenamiento Quicksort registrando la traza secuencial de pasos para animación.
+     * Ejecuta QuickSort registrando la traza secuencial de pasos para la animación en Frontend.
      * 
-     * @param arrayInput Arreglo de entrada de 10 elementos.
-     * @return QuickSortResponseDto con el arreglo ordenado y la lista de pasos, o null si la entrada es inválida o contiene duplicados.
+     * @param arregloEntrada Arreglo de entrada de 10 elementos únicos.
+     * @return QuickSortResponseDto con el arreglo ordenado y los pasos, o null si la entrada es inválida.
      */
-    public QuickSortResponseDto executeQuickSort(int[] arrayInput) {
-        if (arrayInput == null || arrayInput.length != SIZE || hasDuplicates(arrayInput)) {
+    public synchronized QuickSortResponseDto ejecutarQuickSort(int[] arregloEntrada) {
+        if (arregloEntrada == null || arregloEntrada.length != TAMANO || tieneDuplicados(arregloEntrada)) {
             return null;
         }
 
-        int[] arr = arrayInput.clone();
-        List<QuickSortStepDto> steps = new ArrayList<>();
+        int[] arreglo = arregloEntrada.clone();
+        this.pasos = new QuickSortStepDto[128];
+        this.conteoPasos = 0;
 
-        // Paso inicial: estado base esperando inicio
-        addStep(steps, arr, null, null, null, new int[0], null,
-            "INICIANDO PROCESO DE ORDENAMIENTO (Esquema Hoare Original)", "compare", new int[]{0, SIZE - 1});
+        agregarPaso(arreglo, null, null, null, new int[0], null,
+            "INICIANDO ORDENAMIENTO QUICKSORT", "new_partition", new int[]{0, TAMANO - 1});
 
-        reduce(arr, 0, SIZE - 1, steps);
+        reducir(arreglo, 0, TAMANO - 1);
 
-        // Paso final: arreglo completamente ordenado
-        addStep(steps, arr, null, null, null, new int[0], null,
+        agregarPaso(arreglo, null, null, null, new int[0], null,
             "¡ORDENAMIENTO COMPLETADO!", "finish", null);
 
-        return new QuickSortResponseDto(arr, steps, "Arreglo ordenado exitosamente.");
+        return new QuickSortResponseDto(
+            arreglo,
+            Arrays.copyOf(this.pasos, this.conteoPasos),
+            "Arreglo ordenado exitosamente."
+        );
     }
 
     /**
-     * Versión simplificada que solo devuelve el arreglo ordenado (retrocompatibilidad).
+     * Función recursiva de ordenamiento por división y conquista.
      * 
-     * @param arrayInput Arreglo de entrada a ordenar.
-     * @return int[] ordenado o null si es inválido.
+     * @param arreglo Arreglo de trabajo.
+     * @param inicio Índice inicial del subarreglo.
+     * @param fin Índice final del subarreglo.
      */
-    public int[] quickSort(int[] arrayInput) {
-        QuickSortResponseDto result = executeQuickSort(arrayInput);
-        return result != null ? result.sortedArray() : null;
+    public void reducir(int[] arreglo, int inicio, int fin) {
+        if (inicio >= fin) return;
+        int p = particionar(arreglo, inicio, fin);
+        reducir(arreglo, inicio, p - 1);
+        reducir(arreglo, p + 1, fin);
     }
 
     /**
-     * Función recursiva reductora basada en la partición original de Sir Tony Hoare (1961).
-     * El pivote se selecciona en 'start' y dos punteros convergen hacia el centro.
+     * Realiza la partición de Quicksort mediante recorrido recursivo puro.
+     * El pivote permanece fijo en 'inicio' durante todo el escaneo recursivo de punteros.
      * 
-     * @param arr Arreglo de trabajo.
-     * @param start Índice inferior del subarreglo.
-     * @param end Índice superior del subarreglo.
-     * @param steps Lista de acumulación de pasos.
+     * @param arreglo Arreglo de trabajo.
+     * @param inicio Índice inicial.
+     * @param fin Índice final.
+     * @return Índice de la posición definitiva del pivote.
      */
-    public void reduce(int[] arr, int start, int end, List<QuickSortStepDto> steps) {
-        if (start >= end) {
-            if (start == end) {
-                addStep(steps, arr, null, null, null, new int[0], null,
-                    "Sub-arreglo de 1 elemento en índice " + start + " ya se encuentra ordenado.",
-                    "new_partition", new int[]{start, end});
-            }
-            return;
+    private int particionar(int[] arreglo, int inicio, int fin) {
+        int pivote = arreglo[inicio];
+        int[] rango = new int[]{inicio, fin};
+
+        agregarPaso(arreglo, inicio, null, null, new int[0], null,
+            "Partición en rango [" + inicio + ".." + fin + "]. Pivote asignado: " + pivote + " en índice " + inicio + ".",
+            "new_partition", rango);
+
+        int j = escanearEIntercambiarRecursivo(arreglo, pivote, inicio, fin, rango, inicio + 1, fin);
+
+        // Punteros cruzados: ubicar el pivote en su posición final definitiva 'j'
+        if (inicio != j) {
+            agregarPaso(arreglo, inicio, null, (j >= inicio ? j : null), new int[]{inicio, j}, null,
+                "Punteros cruzados. Colocando pivote " + pivote + " en posición definitiva [" + j + "].",
+                "found", rango);
+
+            intercambiar(arreglo, inicio, j);
+
+            agregarPaso(arreglo, j, null, null, new int[]{inicio, j}, new SwapLineDto(inicio, j),
+                "Pivote " + pivote + " ubicado en índice definitivo [" + j + "].",
+                "swap", rango);
+
+            agregarPaso(arreglo, j, null, null, new int[0], null,
+                "Pivote " + pivote + " fijado en posición [" + j + "].",
+                "done", rango);
+        } else {
+            agregarPaso(arreglo, inicio, null, null, new int[0], null,
+                "Pivote " + pivote + " ya se encuentra en su posición definitiva [" + inicio + "].",
+                "done", rango);
         }
 
-        int left = start - 1;
-        int right = end + 1;
-        int pivotValue = arr[start];
-        int pivotIndex = start;
-        int[] range = new int[]{start, end};
+        return j;
+    }
 
-        // 1. Notificar inicio de nueva partición con pivote fijado
-        addStep(steps, arr, pivotIndex, null, null, new int[0], null,
-            "Iniciando partición Hoare en rango [" + start + " a " + end + "]. Pivote seleccionado: " + pivotValue + " en índice " + start + ".",
-            "new_partition", range);
-
-        while (true) {
-            do {
-                left++;
-                addStep(steps, arr, pivotIndex, left, (right <= end && right >= start ? right : null), new int[0], null,
-                    "Avanzando i (" + left + "): valor [" + arr[left] + "]" + (arr[left] < pivotValue ? " < pivote (" + pivotValue + "), continúa avanzando." : " >= pivote (" + pivotValue + "), se detiene."),
-                    "compare", range);
-            } while (arr[left] < pivotValue);
-
-            do {
-                right--;
-                addStep(steps, arr, pivotIndex, left, right, new int[0], null,
-                    "Retrocediendo j (" + right + "): valor [" + arr[right] + "]" + (arr[right] > pivotValue ? " > pivote (" + pivotValue + "), continúa retrocediendo." : " <= pivote (" + pivotValue + "), se detiene."),
-                    "compare", range);
-            } while (arr[right] > pivotValue);
-
-            if (left >= right) {
-                addStep(steps, arr, pivotIndex, left, right, new int[0], null,
-                    "Punteros cruzados (i=" + left + " >= j=" + right + "). Partición Hoare concluida. Punto de corte en índice " + right + ".",
-                    "done", range);
-                break;
+    private int avanzarIzquierdaRecursivo(int[] arreglo, int pivote, int i, int fin, int j, int inicio, int[] rango) {
+        if (i > fin || arreglo[i] > pivote) {
+            if (i <= fin) {
+                agregarPaso(arreglo, inicio, i, (j >= inicio && j <= fin ? j : null), new int[0], null,
+                    "Puntero i (" + i + "): [" + arreglo[i] + "] > pivote (" + pivote + "), se detiene.",
+                    "compare", rango);
             }
+            return i;
+        }
+        agregarPaso(arreglo, inicio, i, (j >= inicio && j <= fin ? j : null), new int[0], null,
+            "Avanzando i (" + i + "): [" + arreglo[i] + "] <= pivote (" + pivote + ").",
+            "compare", rango);
+        return avanzarIzquierdaRecursivo(arreglo, pivote, i + 1, fin, j, inicio, rango);
+    }
 
-            // 2. Par detectado para intercambiar
-            addStep(steps, arr, pivotIndex, left, right, new int[]{left, right}, null,
-                "¡Par encontrado! arr[" + left + "]=" + arr[left] + " y arr[" + right + "]=" + arr[right] + ". Preparando intercambio...",
-                "found", range);
+    private int retrocederDerechaRecursivo(int[] arreglo, int pivote, int j, int inicio, int i, int fin, int[] rango) {
+        if (j <= inicio || arreglo[j] <= pivote) {
+            if (j > inicio) {
+                agregarPaso(arreglo, inicio, (i <= fin ? i : null), j, new int[0], null,
+                    "Puntero j (" + j + "): [" + arreglo[j] + "] <= pivote (" + pivote + "), se detiene.",
+                    "compare", rango);
+            }
+            return j;
+        }
+        agregarPaso(arreglo, inicio, (i <= fin ? i : null), j, new int[0], null,
+            "Retrocediendo j (" + j + "): [" + arreglo[j] + "] > pivote (" + pivote + ").",
+            "compare", rango);
+        return retrocederDerechaRecursivo(arreglo, pivote, j - 1, inicio, i, fin, rango);
+    }
 
-            // 3. Ejecución del intercambio
-            swap(arr, left, right);
-
-            // 4. Paso mostrando el arco y animación de swap
-            addStep(steps, arr, pivotIndex, left, right, new int[]{left, right}, new SwapLineDto(left, right),
-                "Intercambiando arr[" + left + "] con arr[" + right + "]...",
-                "swap", range);
-
-            // 5. Intercambio completado
-            addStep(steps, arr, pivotIndex, left, right, new int[0], null,
-                "Intercambio completado exitosamente.",
-                "done", range);
+    private int escanearEIntercambiarRecursivo(int[] arreglo, int pivote, int inicio, int fin, int[] rango, int i, int j) {
+        if (i > j) {
+            return j;
         }
 
-        // Llamadas recursivas del esquema Hoare: [start, right] y [right + 1, end]
-        reduce(arr, start, right, steps);
-        reduce(arr, right + 1, end, steps);
+        int siguienteI = avanzarIzquierdaRecursivo(arreglo, pivote, i, fin, j, inicio, rango);
+        int siguienteJ = retrocederDerechaRecursivo(arreglo, pivote, j, inicio, siguienteI, fin, rango);
+
+        if (siguienteI < siguienteJ) {
+            agregarPaso(arreglo, inicio, siguienteI, siguienteJ, new int[]{siguienteI, siguienteJ}, null,
+                "Par detectado: arr[" + siguienteI + "]=" + arreglo[siguienteI] + " y arr[" + siguienteJ + "]=" + arreglo[siguienteJ] + ". Preparando intercambio...",
+                "found", rango);
+
+            intercambiar(arreglo, siguienteI, siguienteJ);
+
+            agregarPaso(arreglo, inicio, siguienteI, siguienteJ, new int[]{siguienteI, siguienteJ}, new SwapLineDto(siguienteI, siguienteJ),
+                "Intercambiando arr[" + siguienteI + "] con arr[" + siguienteJ + "]...",
+                "swap", rango);
+
+            agregarPaso(arreglo, inicio, siguienteI, siguienteJ, new int[0], null,
+                "Intercambio completado.",
+                "done", rango);
+
+            return escanearEIntercambiarRecursivo(arreglo, pivote, inicio, fin, rango, siguienteI + 1, siguienteJ - 1);
+        } else {
+            return siguienteJ;
+        }
     }
 
     /**
      * Intercambia dos posiciones dentro del arreglo.
      * 
-     * @param arr Arreglo en proceso de ordenamiento.
+     * @param arreglo Arreglo en proceso de ordenamiento.
      * @param i Primer índice.
      * @param j Segundo índice.
      */
-    public void swap(int[] arr, int i, int j) {
-        int temp = arr[j];
-        arr[j] = arr[i];
-        arr[i] = temp;
+    public void intercambiar(int[] arreglo, int i, int j) {
+        int temporal = arreglo[i];
+        arreglo[i] = arreglo[j];
+        arreglo[j] = temporal;
     }
 
-    private void addStep(List<QuickSortStepDto> steps, int[] arr, Integer pivot, Integer i, Integer j,
-                        int[] elevated, SwapLineDto swapLine, String phaseText, String action, int[] range) {
-        steps.add(new QuickSortStepDto(
-            arr.clone(),
-            pivot,
+    private void agregarPaso(int[] arreglo, Integer pivote, Integer i, Integer j,
+                             int[] elevados, SwapLineDto lineaIntercambio, String textoFase, String accion, int[] rango) {
+        if (conteoPasos >= pasos.length) {
+            pasos = Arrays.copyOf(pasos, pasos.length * 2);
+        }
+        pasos[conteoPasos++] = new QuickSortStepDto(
+            arreglo.clone(),
+            pivote,
             i,
             j,
-            elevated != null ? elevated.clone() : new int[0],
-            swapLine,
-            phaseText,
-            action,
-            range != null ? range.clone() : null
-        ));
+            elevados != null ? elevados.clone() : new int[0],
+            lineaIntercambio,
+            textoFase,
+            accion,
+            rango != null ? rango.clone() : null
+        );
     }
 }

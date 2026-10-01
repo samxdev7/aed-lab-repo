@@ -9,73 +9,78 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class OchoReinasServiceTest {
 
-    private OchoReinasService service;
+    private OchoReinasService servicio;
 
     @BeforeEach
     void setUp() {
-        service = new OchoReinasService();
+        servicio = new OchoReinasService();
     }
 
     @Test
-    void testSolveWithRecursiveTrace() {
-        EightQueensResponseDto response = service.solveWithRecursiveTrace();
+    void testResolverConTrazaRecursiva() {
+        EightQueensResponseDto respuesta = servicio.resolverConTrazaRecursiva();
 
-        assertNotNull(response);
-        assertTrue(response.valid(), "La combinación establecida debe ser válida");
-        assertEquals(8, response.steps().size(), "Debe contener exactamente 8 pasos");
-        assertNotNull(response.solution());
-        assertEquals(8, response.solution().length);
+        assertNotNull(respuesta);
+        assertTrue(respuesta.esValido(), "La combinación establecida debe ser válida");
+        assertEquals(8, respuesta.pasos().length, "Debe contener exactamente 8 pasos");
+        assertNotNull(respuesta.solucion());
+        assertEquals(8, respuesta.solucion().length);
 
-        for (QueenStepDto step : response.steps()) {
-            assertTrue(step.verified(), "Cada paso debe verificarse recursivamente sin amenazas");
-            assertTrue(step.row() >= 0 && step.row() < 8);
-            assertTrue(step.col() >= 0 && step.col() < 8);
-            assertNotNull(step.notation());
-        }
+        assertPasosValidosRecursivos(respuesta.pasos(), 0);
+    }
+
+    private void assertPasosValidosRecursivos(QueenStepDto[] pasos, int i) {
+        if (i >= pasos.length) return;
+        QueenStepDto paso = pasos[i];
+        assertTrue(paso.verificado(), "Cada paso debe verificarse recursivamente sin amenazas");
+        assertTrue(paso.fila() >= 0 && paso.fila() < 8);
+        assertTrue(paso.columna() >= 0 && paso.columna() < 8);
+        assertNotNull(paso.notacion());
+        assertPasosValidosRecursivos(pasos, i + 1);
     }
 
     @Test
-    void testIsSafeRecursive() {
+    void testEsSeguroRecursivo() {
         // [0, 4, 7, 5, 2, 6, 1, 3]
-        int[] solution = {0, 4, 7, 5, 2, 6, 1, 3};
+        int[] solucion = {0, 4, 7, 5, 2, 6, 1, 3};
 
         // Reina 0 en (0, 0): no tiene reinas previas (-1)
-        assertTrue(service.isSafeRecursive(0, 0, solution, -1));
+        assertTrue(servicio.esSeguroRecursivo(0, 0, solucion, -1));
 
         // Reina 1 en (1, 4): segura contra reina 0 en (0, 0)
-        assertTrue(service.isSafeRecursive(1, 4, solution, 0));
+        assertTrue(servicio.esSeguroRecursivo(1, 4, solucion, 0));
 
         // Reina con amenaza en misma columna: (1, 0) contra (0, 0)
-        assertFalse(service.isSafeRecursive(1, 0, solution, 0));
+        assertFalse(servicio.esSeguroRecursivo(1, 0, solucion, 0));
 
         // Reina con amenaza en diagonal principal: (1, 1) contra (0, 0)
-        assertFalse(service.isSafeRecursive(1, 1, solution, 0));
+        assertFalse(servicio.esSeguroRecursivo(1, 1, solucion, 0));
 
         // Reina con amenaza en diagonal inversa: (1, 3) contra (0, 4)
-        int[] testArr = {4};
-        assertFalse(service.isSafeRecursive(1, 3, testArr, 0));
+        int[] arregloPrueba = {4};
+        assertFalse(servicio.esSeguroRecursivo(1, 3, arregloPrueba, 0));
     }
 
     @Test
-    void testVerifyAllRecursive() {
-        int[] validSolution = {0, 4, 7, 5, 2, 6, 1, 3};
-        assertTrue(service.verifyAllRecursive(validSolution, 8), "La solución válida debe retornar true");
+    void testVerificarTodoRecursivo() {
+        int[] solucionValida = {0, 4, 7, 5, 2, 6, 1, 3};
+        assertTrue(servicio.verificarTodoRecursivo(solucionValida, 8), "La solución válida debe retornar true");
 
         // Solución con amenaza en misma columna
-        int[] invalidCol = {0, 0, 7, 5, 2, 6, 1, 3};
-        assertFalse(service.verifyAllRecursive(invalidCol, 8), "Misma columna debe retornar false");
+        int[] invalidaCol = {0, 0, 7, 5, 2, 6, 1, 3};
+        assertFalse(servicio.verificarTodoRecursivo(invalidaCol, 8), "Misma columna debe retornar false");
 
         // Solución con amenaza en misma diagonal
-        int[] invalidDiag = {0, 1, 2, 3, 4, 5, 6, 7};
-        assertFalse(service.verifyAllRecursive(invalidDiag, 8), "Misma diagonal debe retornar false");
+        int[] invalidaDiag = {0, 1, 2, 3, 4, 5, 6, 7};
+        assertFalse(servicio.verificarTodoRecursivo(invalidaDiag, 8), "Misma diagonal debe retornar false");
     }
 
     @Test
-    void testVerifyMatrixRecursive() {
-        int[][] validMatrix = service.getSolutionMatrix();
-        assertTrue(service.verifyMatrixRecursive(validMatrix));
+    void testVerificarMatrizRecursiva() {
+        int[][] matrizValida = servicio.obtenerMatrizSolucion();
+        assertTrue(servicio.verificarMatrizRecursiva(matrizValida));
 
-        assertFalse(service.verifyMatrixRecursive(null));
-        assertFalse(service.verifyMatrixRecursive(new int[3][2]));
+        assertFalse(servicio.verificarMatrizRecursiva(null));
+        assertFalse(servicio.verificarMatrizRecursiva(new int[3][2]));
     }
 }
