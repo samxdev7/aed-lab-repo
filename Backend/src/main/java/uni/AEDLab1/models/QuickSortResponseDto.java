@@ -1,20 +1,11 @@
 package uni.AEDLab1.models;
 
-import java.util.List;
-
 /**
- * Respuesta del endpoint de Quicksort que encapsula el arreglo ordenado,
- * la lista cronológica de pasos para la animación y un mensaje de estado.
- * 
- * @param sortedArray Arreglo final ordenado.
- * @param steps Lista de pasos secuenciales para animación en Frontend.
- * @param message Mensaje descriptivo del resultado.
- * 
- * @author samxdev7
- * @version 1.0
+ * Respuesta del endpoint de Quicksort con el arreglo ordenado,
+ * los pasos secuenciales para animación y un mensaje de estado.
  */
 public record QuickSortResponseDto(
     int[] sortedArray,
-    List<QuickSortStepDto> steps,
+    QuickSortStepDto[] steps,
     String message
 ) {}

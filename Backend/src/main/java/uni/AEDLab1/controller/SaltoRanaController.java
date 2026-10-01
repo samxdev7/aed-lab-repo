@@ -7,8 +7,6 @@ import uni.AEDLab1.models.MovimientoRanaDto;
 import uni.AEDLab1.models.SaltoRanaRespuestaDto;
 import uni.AEDLab1.services.SaltoRanaServicio;
 
-import java.util.Arrays;
-
 @RestController
 @RequestMapping("/api/salto-rana")
 public class SaltoRanaController {
@@ -40,7 +38,7 @@ public class SaltoRanaController {
                 "V".repeat(ranasPorLado) + "_" + "C".repeat(ranasPorLado),
                 estadoFinal,
                 movimientos.length,
-                Arrays.asList(movimientos)
+                movimientos
             );
 
             return new ResponseEntity<>(respuesta, HttpStatusCode.valueOf(200));

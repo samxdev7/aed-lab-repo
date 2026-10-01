@@ -22,7 +22,7 @@ class OchoReinasServiceTest {
 
         assertNotNull(response);
         assertTrue(response.valid(), "La combinación establecida debe ser válida");
-        assertEquals(8, response.steps().size(), "Debe contener exactamente 8 pasos");
+        assertEquals(8, response.steps().length, "Debe contener exactamente 8 pasos");
         assertNotNull(response.solution());
         assertEquals(8, response.solution().length);
 
