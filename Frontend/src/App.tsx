@@ -1,20 +1,20 @@
 import { useState } from 'react';
 import { PresentationPanel } from './PresentationPanel';
-import { RecursiveMenuPanel } from './RecursiveMenuPanel';
+import { LinearMenuPanel } from './LinearMenuPanel';
 import { NotificationProvider } from './NotificationContext';
-import { HanoiPanel } from './HanoiPanel';
-import { SaltoRanaPanel } from './SaltoRanaPanel';
-import { QueensPanelV2 } from './QueensPanelV2';
-import { QuickSortPanel } from './QuickSortPanel';
+import { StackPanel } from './StackPanel';
+import { CircularQueuePanel } from './CircularQueuePanel';
+import { QueuePanel } from './QueuePanel';
+import { PolishNotationPanel } from './PolishNotationPanel';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<
     | 'presentation'
     | 'menu'
-    | 'hanoi'
-    | 'frog'
-    | 'queens'
-    | 'quicksort'
+    | 'pilas'
+    | 'colas-circulares'
+    | 'colas'
+    | 'notacion-polaca'
   >('presentation');
 
   return (
@@ -25,29 +25,29 @@ export default function App() {
         )}
 
         {currentScreen === 'menu' && (
-          <RecursiveMenuPanel
+          <LinearMenuPanel
             onBack={() => setCurrentScreen('presentation')}
-            onSelectHanoi={() => setCurrentScreen('hanoi')}
-            onSelectFrog={() => setCurrentScreen('frog')}
-            onSelectQueens={() => setCurrentScreen('queens')}
-            onSelectQuickSort={() => setCurrentScreen('quicksort')}
+            onSelectPilas={() => setCurrentScreen('pilas')}
+            onSelectColasCirculares={() => setCurrentScreen('colas-circulares')}
+            onSelectColas={() => setCurrentScreen('colas')}
+            onSelectNotacionPolaca={() => setCurrentScreen('notacion-polaca')}
           />
         )}
 
-        {currentScreen === 'hanoi' && (
-          <HanoiPanel onBack={() => setCurrentScreen('menu')} />
+        {currentScreen === 'pilas' && (
+          <StackPanel onBack={() => setCurrentScreen('menu')} />
         )}
 
-        {currentScreen === 'frog' && (
-          <SaltoRanaPanel onBack={() => setCurrentScreen('menu')} />
+        {currentScreen === 'colas-circulares' && (
+          <CircularQueuePanel onBack={() => setCurrentScreen('menu')} />
         )}
 
-        {currentScreen === 'queens' && (
-          <QueensPanelV2 onBack={() => setCurrentScreen('menu')} />
+        {currentScreen === 'colas' && (
+          <QueuePanel onBack={() => setCurrentScreen('menu')} />
         )}
 
-        {currentScreen === 'quicksort' && (
-          <QuickSortPanel onBack={() => setCurrentScreen('menu')} />
+        {currentScreen === 'notacion-polaca' && (
+          <PolishNotationPanel onBack={() => setCurrentScreen('menu')} />
         )}
       </main>
     </NotificationProvider>
