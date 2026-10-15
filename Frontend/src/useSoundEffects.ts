@@ -109,6 +109,13 @@ function croak(e: Engine, t: number, f0: number, f1: number, dur: number, peak: 
   lfo.stop(t + dur + 0.03);
 }
 
+/** Nota tipo marimba: fundamental + armónicos que se apagan rápido */
+function pluck(e: Engine, f: number, t: number, dur: number, peak: number) {
+  tone(e, 'sine', f, f, t, dur, peak, 0.003);
+  tone(e, 'sine', f * 2, f * 2, t, dur * 0.5, peak * 0.35, 0.003);
+  tone(e, 'triangle', f * 4, f * 4, t, dur * 0.15, peak * 0.15, 0.002);
+}
+
 export function useSoundEffects() {
   const engineRef = useRef<Engine | null>(null);
 
@@ -252,6 +259,80 @@ export function useSoundEffects() {
     }
   }, [ensure]);
 
+    // Pila: Push (el bloque aterriza: golpe grave + ping metálico suave)
+  const playStackPush = useCallback(() => {
+    const e = ensure();
+    if (!e) return;
+    const t = e.ctx.currentTime + 0.005;
+    tone(e, 'sine', 190, 80, t, 0.14, 0.34, 0.002); // golpe grave
+    tone(e, 'triangle', 520, 260, t, 0.05, 0.1, 0.002); // toc seco
+    noiseBurst(e, t, 0.035, 0.14, 'bandpass', 1800, 900, 2); // contacto
+    tone(e, 'sine', 1480, 1480, t + 0.01, 0.16, 0.035, 0.003); // ping metálico
+  }, [ensure]);
+
+  // Pila: Pop (el bloque se levanta: whoosh ascendente suave)
+  const playStackPop = useCallback(() => {
+    const e = ensure();
+    if (!e) return;
+    const t = e.ctx.currentTime + 0.005;
+    noiseBurst(e, t, 0.12, 0.07, 'bandpass', 600, 2600, 1.4, 0.02); // succión
+    tone(e, 'sine', 330, 660, t, 0.12, 0.12, 0.01);
+    tone(e, 'sine', 990, 990, t + 0.07, 0.12, 0.04, 0.004);
+  }, [ensure]);
+
+  // Cola Circular: enqueue (escala pentatónica ascendente según la entrada)
+  const playCircularStep = useCallback(
+    (step: number = 0) => {
+      const e = ensure();
+      if (!e) return;
+      const t = e.ctx.currentTime + 0.005;
+      const scale = [523.25, 587.33, 659.25, 783.99, 880, 1046.5];
+      pluck(e, scale[step % scale.length], t, 0.3, 0.16);
+      noiseBurst(e, t, 0.015, 0.03, 'highpass', 6000, 6000, 1.0);
+    },
+    [ensure]
+  );
+
+  // Cola Circular: dequeue (dos notas que bajan)
+  const playCircularDequeue = useCallback(() => {
+    const e = ensure();
+    if (!e) return;
+    const t = e.ctx.currentTime + 0.005;
+    pluck(e, 783.99, t, 0.22, 0.11);
+    pluck(e, 587.33, t + 0.07, 0.28, 0.1);
+  }, [ensure]);
+
+  // Cola Lineal: enqueue (entra deslizando y se asienta)
+  const playQueueSlide = useCallback(() => {
+    const e = ensure();
+    if (!e) return;
+    const t = e.ctx.currentTime + 0.005;
+    noiseBurst(e, t, 0.1, 0.05, 'bandpass', 900, 1800, 1.4, 0.02);
+    tone(e, 'triangle', 300, 450, t, 0.1, 0.1, 0.005);
+    pluck(e, 680, t + 0.09, 0.2, 0.09); // se asienta
+  }, [ensure]);
+
+  // Cola Lineal: dequeue (sale hacia la derecha: whoosh descendente)
+  const playQueueOut = useCallback(() => {
+    const e = ensure();
+    if (!e) return;
+    const t = e.ctx.currentTime + 0.005;
+    noiseBurst(e, t, 0.14, 0.06, 'bandpass', 2400, 700, 1.2, 0.015);
+    tone(e, 'sine', 620, 300, t, 0.14, 0.1, 0.005);
+  }, [ensure]);
+
+  // Notación Polaca: resultado calculado (arpegio brillante + nota grave de fondo)
+  const playPolishEval = useCallback(() => {
+    const e = ensure();
+    if (!e) return;
+    const t = e.ctx.currentTime + 0.005;
+    tone(e, 'sine', 261.63, 261.63, t, 0.4, 0.08, 0.01); // base grave
+    pluck(e, 523.25, t, 0.25, 0.14);
+    pluck(e, 783.99, t + 0.07, 0.25, 0.13);
+    pluck(e, 1046.5, t + 0.14, 0.4, 0.15);
+    noiseBurst(e, t + 0.14, 0.12, 0.03, 'highpass', 7000, 7000, 1.0, 0.01); // brillo
+  }, [ensure]);
+
   return { 
     playHoverSound, 
     playClickSound, 
@@ -261,6 +342,13 @@ export function useSoundEffects() {
     playChessSound, 
     playBarsSound, 
     playTone,
+    playStackPush,
+    playStackPop,
+    playCircularStep,
+    playCircularDequeue,
+    playQueueSlide,
+    playQueueOut,
+    playPolishEval,
     initAudio: ensure
   };
 }

@@ -176,13 +176,14 @@ export const PresentationPanel: React.FC<PresentationPanelProps> = ({ onNext }) 
   const selectedMember = selected !== null ? members[selected] : null;
 
   return (
-    <div className="relative h-[100dvh] w-screen bg-[#090b16] text-white flex flex-col justify-between p-3 sm:p-4 overflow-hidden select-none">
+    <div className="fixed inset-0 h-dvh w-full bg-[#090b16] text-white flex flex-col justify-between px-3 sm:px-4 py-2 sm:py-3 overflow-hidden select-none">
       
       {/* Importación de fuentes legibles y limpias */}
       <style>
         {`
           @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Lora:ital,wght@0,400;0,500;0,600;1,400&display=swap');
           
+                    html, body { overflow: hidden; }
           .font-tech-header {
             font-family: 'Rajdhani', sans-serif;
             letter-spacing: 0.08em;
@@ -256,7 +257,7 @@ export const PresentationPanel: React.FC<PresentationPanelProps> = ({ onNext }) 
         style={{ transform: `translate3d(${parallax.x * 0.3}px, ${parallax.y * 0.3}px, 0)` }}
       >
         {/* Título de la Universidad con Gradiente y Resplandor Cyberpunk */}
-        <h1 className="font-tech-header text-xl sm:text-3xl md:text-4xl font-extrabold uppercase tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-white to-purple-300 drop-shadow-[0_0_25px_rgba(168,85,247,0.5)]">
+        <h1 className="font-tech-header [font-size:clamp(1.25rem,5.5vh,2.5rem)] font-extrabold uppercase tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-white to-purple-300 drop-shadow-[0_0_25px_rgba(168,85,247,0.5)]">
           Universidad Nacional de Ingeniería
         </h1>
 
@@ -289,7 +290,8 @@ export const PresentationPanel: React.FC<PresentationPanelProps> = ({ onNext }) 
 
       {/* Sección de Integrantes */}
       <main 
-        className="relative z-10 max-w-6xl mx-auto w-full grid grid-cols-1 md:grid-cols-3 gap-3 my-auto py-1 font-tech-body transition-transform duration-75"
+        className="relative z-10 max-w-6xl mx-auto w-full grid grid-cols-1 md:grid-cols-3 gap-3 my-auto py-1 min-h-0 font-tech-body transition-transform duration-75"
+
         style={{ transform: `translate3d(${parallax.x * 0.6}px, ${parallax.y * 0.6}px, 0)` }}
       >
         {members.map((member, index) => (
@@ -413,18 +415,19 @@ export const PresentationPanel: React.FC<PresentationPanelProps> = ({ onNext }) 
                 <h3 className={`font-tech-header text-sm tracking-[0.2em] uppercase mb-2 ${selectedMember.carnetColor}`}>
                   Sobre mí
                 </h3>
-                <p className="font-elegant text-base sm:text-lg leading-relaxed text-slate-100 text-justify">
+                <p className="font-elegant [font-size:clamp(0.85rem,2.4vh,1.125rem)] leading-relaxed text-slate-100 text-justify">
+
                   {selectedMember.message}
                 </p>
               </div>
 
               <div className="md:col-span-2 rounded-2xl bg-white/5 border border-white/10 p-4">
                 <h3 className={`font-tech-header text-sm tracking-[0.2em] uppercase mb-2 ${selectedMember.carnetColor}`}>
-                  Aportes al Laboratorio #3
+                  Aportes al Laboratorio #4
                 </h3>
                 <ul className="space-y-2 text-left">
                   {selectedMember.contributions.map((item, i) => (
-                    <li key={i} className="font-elegant flex items-start gap-2 text-sm sm:text-base text-slate-200 leading-snug">
+                    <li key={i} className="font-elegant flex items-start gap-2 [font-size:clamp(0.8rem,2.1vh,1rem)] text-slate-200 leading-snug">
                       <span className={`mt-1.5 w-2 h-2 shrink-0 rounded-full ${selectedMember.dotColor}`} />
                       <span>{item}</span>
                     </li>
