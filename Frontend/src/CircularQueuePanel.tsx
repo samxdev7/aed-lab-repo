@@ -10,6 +10,14 @@ import {
 } from 'lucide-react';
 
 import { useSoundEffects } from './useSoundEffects';
+import { useNotification } from './NotificationContext';
+import {
+  obtenerEstadoColaCircular,
+  encolarTrabajo,
+  desencolarTrabajo,
+  reiniciarColaCircular,
+  type ColaCircularEstado,
+} from './services/colaCircularService';
 
 export interface CircularQueuePanelProps {
   onBack: () => void;
@@ -30,47 +38,135 @@ const centerPct = (i: number) => ((i + 0.5) * 100) / CAPACITY;
 
 export const CircularQueuePanel: React.FC<CircularQueuePanelProps> = ({ onBack }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const { playClickSound, playHoverSound } = useSoundEffects();
+  const { playClickSound, playHoverSound, playStackPush, playStackPop, playTone } = useSoundEffects();
+  const { showNotification } = useNotification();
 
   // ========================================================
-  // ESTADO ESTÉTICO SEGÚN LA PIZARRA (FRONTEND PURO)
-  // Casilla 0 = 'K' (Final), Casilla 1 = 'B' (Frente), y del 2 al 9 = C, D, E, F, G, H, I, J
+  // ESTADO DINÁMICO DE LA COLA CIRCULAR (CONECTADO AL BACKEND)
   // ========================================================
-  const [vector] = useState<(string | null)[]>([
-    'K', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J',
-  ]);
-  const [frente] = useState<number>(1);
-  const [final] = useState<number>(0);
-  const [count] = useState<number>(10);
+  const [vector, setVector] = useState<(string | null)[]>(Array(CAPACITY).fill(null));
+  const [frente, setFrente] = useState<number>(-1);
+  const [final, setFinal] = useState<number>(-1);
+  const [count, setCount] = useState<number>(0);
 
   const [trabajoInput, setTrabajoInput] = useState<string>('');
-  const [mensaje] = useState<{ tipo: TipoMensaje; texto: string }>({
+  const [mensaje, setMensaje] = useState<{ tipo: TipoMensaje; texto: string }>({
     tipo: 'info',
-    texto: 'Estado inicial: Frente = 1 (B), Final = 0 (K).',
+    texto: 'Cargando estado de la cola circular...',
   });
-  const [animatingIdx] = useState<number | null>(null);
-  const [leaving] = useState<{ idx: number; val: string } | null>(null);
-  const [isWrapAround] = useState<boolean>(false);
+  const [animatingIdx, setAnimatingIdx] = useState<number | null>(null);
+  const [leaving, setLeaving] = useState<{ idx: number; val: string } | null>(null);
+  const [isWrapAround, setIsWrapAround] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  // ========================================================
-  // CONTROLADORES DE FRONTEND (LÓGICA PENDIENTE)
-  // ========================================================
-  const handleGuardarTrabajo = () => {
-    playClickSound();
-    // TODO: Lógica de Backend 
+  const actualizarEstado = (estado: ColaCircularEstado) => {
+    setVector(estado.cola);
+    setFrente(estado.frente);
+    setFinal(estado.finalCola);
+    setCount(estado.cantidad);
+    setMensaje({
+      tipo: estado.tipoMensaje,
+      texto: estado.mensaje,
+    });
+    if (estado.dioVuelta) {
+      setIsWrapAround(true);
+      setTimeout(() => setIsWrapAround(false), 1200);
+    }
   };
 
-  const handleDesencolar = () => {
-    playClickSound();
-    // TODO: Lógica de Backend
+  // Carga inicial del estado desde el Backend
+  useEffect(() => {
+    const cargarEstadoInicial = async () => {
+      try {
+        const estado = await obtenerEstadoColaCircular();
+        actualizarEstado(estado);
+      } catch (err: any) {
+        setMensaje({
+          tipo: 'warn',
+          texto: 'Iniciando en modo local. Conecte el Backend para sincronización en tiempo real.',
+        });
+      }
+    };
+    cargarEstadoInicial();
+  }, []);
+
+  // ========================================================
+  // OPERACIONES DE COLA CIRCULAR CONECTADAS AL BACKEND
+  // ========================================================
+  const handleGuardarTrabajo = async () => {
+    const limpio = trabajoInput.trim().toUpperCase();
+    if (!limpio) {
+      playTone(200, 'sawtooth', 0.25, 0.2);
+      showNotification('warning', 'Campo Vacío', 'Ingrese el identificador de la estación (1 a 4 letras).');
+      return;
+    }
+    if (limpio.length > 4 || !/^[A-Z]+$/.test(limpio)) {
+      playTone(200, 'sawtooth', 0.25, 0.2);
+      showNotification('error', 'Formato Inválido', 'Las estaciones de trabajo solo pueden componerse de 1 a 4 letras (A-Z).');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      playClickSound();
+      const estado = await encolarTrabajo(limpio);
+      playStackPush();
+      setTrabajoInput('');
+      actualizarEstado(estado);
+      if (estado.indiceAfectado !== null) {
+        setAnimatingIdx(estado.indiceAfectado);
+        setTimeout(() => setAnimatingIdx(null), 600);
+      }
+      showNotification('success', 'Trabajo Encolado', estado.mensaje);
+    } catch (err: any) {
+      playTone(200, 'sawtooth', 0.25, 0.2);
+      setMensaje({ tipo: 'warn', texto: err.message });
+      showNotification('error', 'Error al Encolar', err.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleReiniciar = () => {
-    playClickSound();
-    setTrabajoInput('');
-    // TODO: Lógica de Backend 
+  const handleDesencolar = async () => {
+    try {
+      setIsLoading(true);
+      playClickSound();
+      const elementoAnterior = frente >= 0 ? vector[frente] : null;
+      const indiceAnterior = frente;
+      const estado = await desencolarTrabajo();
+      playStackPop();
+
+      if (indiceAnterior >= 0 && elementoAnterior) {
+        setLeaving({ idx: indiceAnterior, val: elementoAnterior });
+        setTimeout(() => setLeaving(null), 500);
+      }
+
+      actualizarEstado(estado);
+      showNotification('info', 'Trabajo Desencolado', estado.mensaje);
+    } catch (err: any) {
+      playTone(200, 'sawtooth', 0.25, 0.2);
+      setMensaje({ tipo: 'warn', texto: err.message });
+      showNotification('error', 'Error al Desencolar', err.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
-  // ========================================================
+
+  const handleReiniciar = async () => {
+    try {
+      setIsLoading(true);
+      playClickSound();
+      setTrabajoInput('');
+      const estado = await reiniciarColaCircular();
+      actualizarEstado(estado);
+      showNotification('info', 'Cola Reiniciada', 'La cola circular ha sido vaciada exitosamente.');
+    } catch (err: any) {
+      playTone(200, 'sawtooth', 0.25, 0.2);
+      showNotification('error', 'Error', err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Fondo animado de partículas neón
   useEffect(() => {
@@ -412,22 +508,27 @@ export const CircularQueuePanel: React.FC<CircularQueuePanelProps> = ({ onBack }
               type="text"
               maxLength={4}
               autoFocus
-              placeholder="Ej: A, T1, M2"
+              placeholder="Ej: A, WS, DOC"
               value={trabajoInput}
-              onChange={(e) => setTrabajoInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleGuardarTrabajo()}
-              className="w-full bg-[#03060d] border border-slate-500/50 focus:border-cyan-400 rounded-xl pl-4 pr-14 py-2.5 text-lg text-white placeholder:text-slate-500 focus:outline-none transition-all font-mono-tech font-bold tracking-widest uppercase"
+              onChange={(e) => {
+                const soloLetras = e.target.value.toUpperCase().replace(/[^A-Z]/g, '');
+                setTrabajoInput(soloLetras);
+              }}
+              onKeyDown={(e) => e.key === 'Enter' && !isLoading && handleGuardarTrabajo()}
+              disabled={isLoading}
+              className="w-full bg-[#03060d] border border-slate-500/50 focus:border-cyan-400 rounded-xl pl-4 pr-14 py-2.5 text-lg text-white placeholder:text-slate-500 focus:outline-none transition-all font-mono-tech font-bold tracking-widest uppercase disabled:opacity-50"
             />
             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-mono-tech text-slate-500">
               {trabajoInput.length}/4
             </span>
           </div>
 
-            <button
+          <button
             type="button"
             onClick={handleGuardarTrabajo}
             onMouseEnter={playHoverSound}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-[#03060d] bg-cyan-400 hover:-translate-y-0.5 active:scale-95 transition-transform duration-200 cursor-pointer shrink-0 font-tech-header text-base tracking-wider"
+            disabled={isLoading}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-[#03060d] bg-cyan-400 hover:bg-cyan-300 hover:-translate-y-0.5 active:scale-95 transition-transform duration-200 cursor-pointer shrink-0 font-tech-header text-base tracking-wider disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Save className="w-5 h-5" />
             Guardar
@@ -439,18 +540,20 @@ export const CircularQueuePanel: React.FC<CircularQueuePanelProps> = ({ onBack }
             type="button"
             onClick={handleDesencolar}
             onMouseEnter={playHoverSound}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-slate-200 bg-slate-700/50 border border-slate-500/40 hover:-translate-y-0.5 active:scale-95 transition-transform duration-200 cursor-pointer shrink-0 font-tech-header text-base tracking-wider"
+            disabled={isLoading || count === 0}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-slate-200 bg-slate-700/50 border border-slate-500/40 hover:bg-slate-700 hover:-translate-y-0.5 active:scale-95 transition-transform duration-200 cursor-pointer shrink-0 font-tech-header text-base tracking-wider disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Trash2 className="w-5 h-5" />
             Desencolar
           </button>
 
-            <button
+          <button
             type="button"
             onClick={handleReiniciar}
             onMouseEnter={playHoverSound}
+            disabled={isLoading}
             title="Volver al estado inicial"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-slate-300 bg-transparent border border-slate-500/40 hover:-translate-y-0.5 active:scale-95 transition-transform duration-200 cursor-pointer shrink-0 font-tech-header text-base tracking-wider"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-slate-300 bg-transparent border border-slate-500/40 hover:bg-white/5 hover:-translate-y-0.5 active:scale-95 transition-transform duration-200 cursor-pointer shrink-0 font-tech-header text-base tracking-wider disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <RotateCcw className="w-4 h-4" />
             Reiniciar
