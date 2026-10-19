@@ -79,7 +79,7 @@ export const GenericSortingPanel: React.FC<GenericSortingPanelProps> = ({
       arreglo: parsedArray,
       metodoDeOrdenamiento
     })
-      .then((res) => {
+      .then((res: number[]) => {
         setSortedArray(res);
         showNotification('success', 'Ordenamiento completado', successMessage);
       })
