@@ -10,10 +10,10 @@ type EstadoBasePila = {
   tipoMensaje: TipoMensajePila;
 };
 
-// Consultar el estado y reiniciar no afectan ningún elemento
+// Consultar el estado y reiniciar no afectan ningún elemento//
 export type PilaEstado = EstadoBasePila & { elementoAfectado: string | null };
 
-// Push y Pop siempre devuelven el Dato que insertaron o sacaron
+// Push y Pop siempre devuelven el Dato que insertaron o sacaron//
 export type PilaEstadoConElemento = EstadoBasePila & { elementoAfectado: string };
 
 type PilaPeticion = { centroComercial: string };
