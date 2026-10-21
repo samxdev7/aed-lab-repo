@@ -129,7 +129,8 @@ export const PresentationPanel: React.FC<PresentationPanelProps> = ({ onNext }) 
       modalBorder: "border-purple-400/60",
       modalGlow: "shadow-[0_0_80px_rgba(168,85,247,0.35)]",
       message: "Holaaa, a mi me toco la parte del frontend, la verdad lo puede confirmar con mis compañeros me encanta el frontend amo el diseño y deseo seguir mejorando en ello, se que estos laboratorios me han ayudado a implementar y despertar aun mas mi creatividad con respecto al diseño y claro usar la IA a mi favor jajaja, con respecto al diseño de todo el lab puedo decir que lo elegi yo todo este toque de efectos neón me parece muy bonito.",
-      contributions: ["Frontend completo del panel de las 8 Reinas.", "Frontend completo del panel de Ordenamiento Rápido.", "Revisión general de los paneles para que siguiera al pie de la letra el diseño general del laboratorio.", "Implementación de mejoras de diseño de igual manera generalmente a todo el laboratorio."],
+      contributions: ["-Pantallas de Interfaces base de todos los paneles del lab.",
+      "-Frontend de Colas Circulares.", "-Revisión general de los paneles con respecto al diseño.", "-Creación del Documento a entregar del lab #4."],
     },
     {
       name: "Gabriela Abigail Ruiz Rodríguez",
@@ -145,8 +146,8 @@ export const PresentationPanel: React.FC<PresentationPanelProps> = ({ onNext }) 
       lineGradient: "from-amber-500/80 to-orange-500/80",
       modalBorder: "border-amber-400/60",
       modalGlow: "shadow-[0_0_80px_rgba(251,191,36,0.3)]",
-      message: "Hellouu, me gusta mucho aprender cosas nuevas y descubrir cómo funcionan. Reconozco que no soy la mejor, pero siempre intento dar lo mejor de mí a pesar de las dificultades. Durante estos labs he aprendido bastante gracias a mis compañeros y a las experiencias que hemos tenido trabajando. También he tenido la oportunidad de aprender tanto de backend como de frontend, lo cual me ha permitido conocer herramientas y cosas que antes no manejaba. Me gusta aprender paso a paso, investigar cuando no entiendo algo y buscar la manera de resolver los problemas que van apareciendo. Espero seguir aprendiendo, mejorar mucho más mis habilidades y poder aportar más al equipo.",
-      contributions: ["Backend de las torres de Hanoi.", "Backend de el salto de ranita.", "Frontend de las torres de Hanoi.", "Frontend de el salto de ranita.", "Tenerle paciencia a mis compitas y sus quejas de mis animaciones, ajskjsdkjsdjsdja Bromitaaa."],
+      message: "Hellouu, me gusta seguir aprendiendo cosas nuevas y poner en práctica lo que voy aprendiendo. En este lab me encargué de trabajar con pilas y colas, lo que me permitió reforzar mis conocimientos sobre pilas y entender las cosas (porque no estuve presente durante esa clase). Espero seguir aprendiendo, mejorar mis habilidades y aportar cada vez más al equipo. 💜 Y que Joksan se relaje un poquito con el diseño ajsjsjsjssj (gracias por tenerme paciencia está semana bros).",
+      contributions: ["-frontend total de Pilas.", "-Backend total de Pilas.", "-Frontend total de Colas.", "-Backend total de Colas."],
     },
     {
       name: "Samuel Enrique Rueda Ruiz",
@@ -164,11 +165,10 @@ export const PresentationPanel: React.FC<PresentationPanelProps> = ({ onNext }) 
       modalGlow: "shadow-[0_0_80px_rgba(34,211,238,0.3)]",
       message: "Buenas, además de ser un autodidacta con la potencia a un overclock enfermo, me la paso aprendiendo y volviéndome más enfermo cada día por pura pasión. Entre lo que me gusta hacer es explotar a mis compañeros de clases, estudiar matemática (no importa que rama, es lo segundo más bello que tiene este universo), poner en práctica desarrollo web, desbaratar mi computadora con Linux, volverme más pro hacker, etc.",
       contributions: [
-      "Backend completo de las ocho reinas.",
-      "Backend completo de Quicksort.",
-      "Mejoras leves de Frontend de Quicksort.",
-      "Supervisión y control de calidad de código y versionado de laboratorio.",
-      "Documento de lab #3 (tocó ..... CONIOOOOOOOOOOOOOOO).",
+      "-Desarrollo Fullstack completo de Notación Polaca." ,
+      "-Desarrollo Backend completo de Colas Circulares." ,
+      "-Supervisión y control de calidad de código y versionado de laboratorio.",
+      "-Quemar a mis compañeros de clase, de tal forma que una ya que me quiere hervir en una olla llena de agua.",
       ],
     },
   ];
