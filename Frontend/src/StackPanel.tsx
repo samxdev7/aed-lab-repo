@@ -1,13 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Save, Trash2, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Check, Save, Trash2 } from 'lucide-react';
 
 import { useSoundEffects } from './useSoundEffects';
 import { useNotification } from './NotificationContext';
 import {
   obtenerEstadoPila,
+  definirTamanoPila,
   pushCentroComercial,
   popCentroComercial,
-  reiniciarPila,
   type PilaEstado,
   type PilaEstadoConElemento,
   type TipoMensajePila,
@@ -26,16 +26,17 @@ type ElementoSaliente = { indice: number; nombre: string }; // Dato que acaba de
 type Particula = { x: number; y: number; vx: number; vy: number; tamano: number };
 
 /* ---------- Constantes ---------- */
+const TAMANO_MAXIMO_PILA: number = 100; // Debe coincidir con el Backend
 const MAX_CARACTERES_NOMBRE: number = 30; // Debe coincidir con el Backend
 const CARACTERES_NO_PERMITIDOS: RegExp = /[^\p{L}\d .'-]/gu; // Letras, números, espacio, punto, apóstrofo y guion
 const DURACION_ANIMACION_APILAR_MS: number = 600;
 const DURACION_ANIMACION_DESAPILAR_MS: number = 500;
 
-// Se muestra mientras llega el primer estado del Backend (el Backend es quien define Max)
+// Se muestra mientras llega el primer estado del Backend (max = 0 significa "pila sin crear")
 const ESTADO_PILA_INICIAL: PilaEstado = {
   elementos: [],
   tope: -1,
-  max: 10,
+  max: 0,
   mensaje: 'Cargando estado de la pila...',
   tipoMensaje: 'info',
   elementoAfectado: null,
@@ -62,6 +63,7 @@ const obtenerEstiloCasilla = (esTope: boolean, nombre: CasillaPila): EstiloCasil
 
 export const StackPanel: React.FC<StackPanelProps> = ({ onBack }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const filaVisibleRef = useRef<HTMLDivElement | null>(null); // Fila del tope (o la base si la pila está vacía)
   const { playClickSound, playHoverSound, playStackPush, playStackPop, playTone } = useSoundEffects();
   const { showNotification } = useNotification();
 
@@ -69,6 +71,7 @@ export const StackPanel: React.FC<StackPanelProps> = ({ onBack }) => {
   // ESTADO DE LA PILA (VIENE DEL BACKEND)
   // ========================================================
   const [estadoPila, setEstadoPila] = useState<PilaEstado>(ESTADO_PILA_INICIAL);
+  const [tamanoPilaTexto, setTamanoPilaTexto] = useState<string>('');
   const [nombreCentroComercial, setNombreCentroComercial] = useState<string>('');
   const [ultimoDatoExtraido, setUltimoDatoExtraido] = useState<string | null>(null);
   const [indiceRecienApilado, setIndiceRecienApilado] = useState<number | null>(null);
@@ -78,9 +81,12 @@ export const StackPanel: React.FC<StackPanelProps> = ({ onBack }) => {
   const elementos: string[] = estadoPila.elementos;
   const tope: number = estadoPila.tope;
   const max: number = estadoPila.max;
+  const pilaCreada: boolean = max > 0;
   const cantidadElementos: number = tope + 1;
-  const bandPilaLlena: boolean = tope === max - 1; // Resultado de Pilallena
-  const bandPilaVacia: boolean = tope === -1;      // Resultado de Pilavacia
+  const porcentajeOcupacion: number = pilaCreada ? (cantidadElementos / max) * 100 : 0;
+  const bandPilaLlena: boolean = pilaCreada && tope === max - 1; // Resultado de Pilallena
+  const bandPilaVacia: boolean = pilaCreada && tope === -1;      // Resultado de Pilavacia
+  const indiceFilaVisible: number = Math.max(tope, 0);
 
   // Índices de arriba hacia abajo: el tope visual queda arriba y la base (0) abajo
   const indicesDeArribaAbajo: number[] = Array.from(
@@ -98,7 +104,9 @@ export const StackPanel: React.FC<StackPanelProps> = ({ onBack }) => {
   useEffect(() => {
     const cargarEstadoInicial = async (): Promise<void> => {
       try {
-        setEstadoPila(await obtenerEstadoPila());
+        const estadoInicial: PilaEstado = await obtenerEstadoPila();
+        setEstadoPila(estadoInicial);
+        if (estadoInicial.max > 0) setTamanoPilaTexto(String(estadoInicial.max));
       } catch {
         setEstadoPila((estadoAnterior: PilaEstado): PilaEstado => ({
           ...estadoAnterior,
@@ -110,9 +118,14 @@ export const StackPanel: React.FC<StackPanelProps> = ({ onBack }) => {
     cargarEstadoInicial();
   }, []);
 
+  // Mantiene a la vista el tope: si la pila no cabe en pantalla, el scroll baja o sube solo
+  useEffect(() => {
+    filaVisibleRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [tope, max]);
+
   // ========================================================
-  // OPERACIONES (Push, Pop y Reiniciar comparten el mismo flujo)
-  // T es el tipo exacto que devuelve cada operación: PilaEstadoConElemento en Push/Pop, PilaEstado en Reiniciar.
+  // OPERACIONES (Crear pila, Push y Pop comparten el mismo flujo)
+  // T es el tipo exacto que devuelve cada operación: PilaEstadoConElemento en Push/Pop, PilaEstado en Crear pila.
   // Si el Backend responde con error (Desbordamiento / Subdesbordamiento) se muestra el mensaje y se devuelve null.
   // ========================================================
   const ejecutarOperacion = async <T extends PilaEstado>(
@@ -138,6 +151,25 @@ export const StackPanel: React.FC<StackPanelProps> = ({ onBack }) => {
     } finally {
       setEstaCargando(false);
     }
+  };
+
+  const handleCrearPila = async (): Promise<void> => {
+    const tamanoIngresado: number = Number(tamanoPilaTexto);
+    if (!Number.isInteger(tamanoIngresado) || tamanoIngresado < 1 || tamanoIngresado > TAMANO_MAXIMO_PILA) {
+      playTone(200, 'sawtooth', 0.25, 0.2);
+      showNotification('warning', 'Tamaño Inválido', `Ingrese un número entero entre 1 y ${TAMANO_MAXIMO_PILA}.`);
+      return;
+    }
+
+    const nuevoEstado: PilaEstado | null = await ejecutarOperacion(
+      (): Promise<PilaEstado> => definirTamanoPila(tamanoIngresado),
+      'Error al Crear la Pila'
+    );
+    if (nuevoEstado === null) return;
+
+    setNombreCentroComercial('');
+    setUltimoDatoExtraido(null);
+    showNotification('success', 'Pila Creada', nuevoEstado.mensaje);
   };
 
   const handlePush = async (): Promise<void> => {
@@ -175,15 +207,6 @@ export const StackPanel: React.FC<StackPanelProps> = ({ onBack }) => {
     setElementoSaliente({ indice: nuevoEstado.tope + 1, nombre: nuevoEstado.elementoAfectado });
     setTimeout((): void => setElementoSaliente(null), DURACION_ANIMACION_DESAPILAR_MS);
     showNotification('info', 'Centro Comercial Desapilado', nuevoEstado.mensaje);
-  };
-
-  const handleReiniciar = async (): Promise<void> => {
-    const nuevoEstado: PilaEstado | null = await ejecutarOperacion(reiniciarPila, 'Error al Reiniciar');
-    if (nuevoEstado === null) return;
-
-    setNombreCentroComercial('');
-    setUltimoDatoExtraido(null);
-    showNotification('info', 'Pila Reiniciada', 'La pila volvió al estado vacío (Tope = -1).');
   };
 
   // Fondo animado de partículas neón
@@ -262,6 +285,11 @@ export const StackPanel: React.FC<StackPanelProps> = ({ onBack }) => {
           .font-tech-body { font-family: 'Plus Jakarta Sans', sans-serif; }
           .font-mono-tech { font-family: 'Fira Code', monospace; }
 
+          .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+          .custom-scrollbar::-webkit-scrollbar-track { background: rgba(15, 20, 38, 0.6); border-radius: 4px; }
+          .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(34, 211, 238, 0.3); border-radius: 4px; }
+          .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(34, 211, 238, 0.6); }
+
           @keyframes pointer-nudge {
             0%, 100% { transform: translateX(0); }
             50% { transform: translateX(-4px); }
@@ -297,7 +325,7 @@ export const StackPanel: React.FC<StackPanelProps> = ({ onBack }) => {
           Pilas
         </h1>
 
-        <div className="relative -top-4 flex items-center justify-center gap-3 text-purple-200/90">
+        <div className="flex items-center justify-center gap-3 text-purple-200/90 -translate-y-5">
           <div className="flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
             <span className="h-[1px] w-10 sm:w-24 bg-gradient-to-r from-transparent to-cyan-400" />
@@ -330,7 +358,7 @@ export const StackPanel: React.FC<StackPanelProps> = ({ onBack }) => {
               <div className="flex items-center gap-2">
                 <span className="font-tech-header font-bold text-sm text-purple-300 tracking-wider">Max =</span>
                 <div className="min-w-10 h-8 px-2 bg-[#03060d] border border-purple-500/40 rounded-lg flex items-center justify-center font-mono-tech text-sm font-black text-white shadow-[0_0_10px_rgba(168,85,247,0.25)]">
-                  {max}
+                  {pilaCreada ? max : '—'}
                 </div>
               </div>
             </div>
@@ -340,7 +368,7 @@ export const StackPanel: React.FC<StackPanelProps> = ({ onBack }) => {
               <div className="w-24 h-2 rounded-full bg-white/10 overflow-hidden">
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-purple-500 transition-all duration-500"
-                  style={{ width: `${(cantidadElementos / max) * 100}%` }}
+                  style={{ width: `${porcentajeOcupacion}%` }}
                 />
               </div>
               <span className="font-mono-tech text-xs font-bold text-cyan-300">
@@ -349,65 +377,114 @@ export const StackPanel: React.FC<StackPanelProps> = ({ onBack }) => {
             </div>
           </div>
 
-          {/* Casillas: la de mayor índice arriba, la base (0) abajo */}
-          <div className="flex-1 min-h-0 flex flex-col justify-end gap-1 mt-3">
-            {indicesDeArribaAbajo.map((indice: number) => {
-              const nombre: CasillaPila = elementos[indice] ?? null;
-              const esTope: boolean = indice === tope;
-              const estaRecienApilada: boolean = indice === indiceRecienApilado;
-              const estilo: EstiloCasilla = obtenerEstiloCasilla(esTope, nombre);
+          {/* Casillas con scroll: la de mayor índice arriba, la base (0) abajo */}
+          <div className="flex-1 min-h-0 mt-3 overflow-y-auto overflow-x-hidden pr-1 custom-scrollbar">
+            <div className={`min-h-full flex flex-col gap-1 ${pilaCreada ? 'justify-end' : 'justify-center'}`}>
+              {!pilaCreada ? (
+                <p className="text-center font-tech-header text-sm uppercase tracking-wider text-slate-500">
+                  Defina el tamaño de la pila para comenzar
+                </p>
+              ) : (
+                indicesDeArribaAbajo.map((indice: number) => {
+                  const nombre: CasillaPila = elementos[indice] ?? null;
+                  const esTope: boolean = indice === tope;
+                  const estaRecienApilada: boolean = indice === indiceRecienApilado;
+                  const estilo: EstiloCasilla = obtenerEstiloCasilla(esTope, nombre);
 
-              return (
-                <div key={indice} className="flex items-center gap-2 flex-1 min-h-0 max-h-14">
-                  <span className="w-6 shrink-0 text-right font-mono-tech text-[11px] font-bold text-slate-400">
-                    {indice}
-                  </span>
-
-                  <div
-                    className={`relative flex-1 h-full rounded-xl border flex items-center justify-center transition-all duration-300 ${estilo.casilla} ${
-                      estaRecienApilada ? 'scale-105 shadow-[0_0_22px_#22d3ee] z-10' : ''
-                    }`}
-                  >
-                    <span
-                      className={`font-mono-tech font-bold truncate px-3 ${estilo.texto} ${estaRecienApilada ? 'anim-cell-pop' : ''}`}
-                      style={{ fontSize: 'clamp(0.8rem, 2.1vh, 1.05rem)' }}
+                  return (
+                    <div
+                      key={indice}
+                      ref={indice === indiceFilaVisible ? filaVisibleRef : undefined}
+                      className="flex items-center gap-2 h-11 shrink-0"
                     >
-                      {nombre ?? '—'}
-                    </span>
-
-                    {/* Centro comercial que acaba de salir con Pop */}
-                    {elementoSaliente?.indice === indice && (
-                      <span
-                        className="absolute inset-0 flex items-center justify-center px-3 truncate font-mono-tech font-bold text-rose-300 anim-cell-leave pointer-events-none"
-                        style={{ fontSize: 'clamp(0.8rem, 2.1vh, 1.05rem)' }}
-                      >
-                        {elementoSaliente.nombre}
+                      <span className="w-8 shrink-0 text-right font-mono-tech text-[11px] font-bold text-slate-400">
+                        {indice}
                       </span>
-                    )}
-                  </div>
 
-                  {/* Puntero TOPE */}
-                  <div className="w-20 shrink-0">
-                    {esTope && (
-                      <div className="flex items-center gap-1 text-cyan-300 anim-pointer">
-                        <ArrowLeft className="w-4 h-4" />
-                        <span className="text-[11px] font-extrabold font-tech-header uppercase tracking-wider drop-shadow-[0_0_6px_#22d3ee]">
-                          Tope
+                      <div
+                        className={`relative flex-1 h-full rounded-xl border flex items-center justify-center transition-all duration-300 ${estilo.casilla} ${
+                          estaRecienApilada ? 'scale-105 shadow-[0_0_22px_#22d3ee] z-10' : ''
+                        }`}
+                      >
+                        <span
+                          className={`font-mono-tech text-sm sm:text-base font-bold truncate px-3 ${estilo.texto} ${
+                            estaRecienApilada ? 'anim-cell-pop' : ''
+                          }`}
+                        >
+                          {nombre ?? '—'}
                         </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
 
-            {/* Base de la pila */}
-            <div className="h-1.5 mt-1 rounded-full bg-gradient-to-r from-cyan-500/20 via-cyan-400/70 to-cyan-500/20" />
+                        {/* Centro comercial que acaba de salir con Pop */}
+                        {elementoSaliente?.indice === indice && (
+                          <span className="absolute inset-0 flex items-center justify-center px-3 truncate font-mono-tech text-sm sm:text-base font-bold text-rose-300 anim-cell-leave pointer-events-none">
+                            {elementoSaliente.nombre}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Puntero TOPE */}
+                      <div className="w-20 shrink-0">
+                        {esTope && (
+                          <div className="flex items-center gap-1 text-cyan-300 anim-pointer">
+                            <ArrowLeft className="w-4 h-4" />
+                            <span className="text-[11px] font-extrabold font-tech-header uppercase tracking-wider drop-shadow-[0_0_6px_#22d3ee]">
+                              Tope
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+
+              {/* Base de la pila */}
+              {pilaCreada && (
+                <div className="h-1.5 mt-1 shrink-0 rounded-full bg-gradient-to-r from-cyan-500/20 via-cyan-400/70 to-cyan-500/20" />
+              )}
+            </div>
           </div>
         </section>
 
-        {/* COLUMNA DERECHA: controles + indicadores de los algoritmos */}
+        {/* COLUMNA DERECHA: tamaño, controles e indicadores de los algoritmos */}
         <div className="lg:col-span-5 min-h-0 flex flex-col justify-center gap-4">
+          {/* Tamaño de la pila (Max) */}
+          <section className="bg-[#0f1426]/85 backdrop-blur-xl border border-cyan-500/30 rounded-2xl px-5 py-3 shadow-[0_0_35px_rgba(34,211,238,0.12)] flex flex-col gap-2">
+            <label htmlFor="tamanoPilaInput" className="font-tech-header text-base font-bold text-slate-100 tracking-wide">
+              Tamaño de la pila (Max):
+            </label>
+
+            <div className="flex items-center gap-3">
+              <input
+                id="tamanoPilaInput"
+                type="number"
+                min={1}
+                max={TAMANO_MAXIMO_PILA}
+                step={1}
+                autoFocus
+                placeholder={`1 a ${TAMANO_MAXIMO_PILA}`}
+                value={tamanoPilaTexto}
+                onChange={(evento: React.ChangeEvent<HTMLInputElement>): void => setTamanoPilaTexto(evento.target.value)}
+                onKeyDown={(evento: React.KeyboardEvent<HTMLInputElement>): void => {
+                  if (evento.key === 'Enter' && !estaCargando) handleCrearPila();
+                }}
+                className="flex-1 min-w-0 bg-[#03060d] border border-slate-500/50 focus:border-cyan-400 rounded-xl px-4 py-2 text-base text-white placeholder:text-slate-500 focus:outline-none transition-all font-mono-tech font-bold"
+              />
+              <button
+                type="button"
+                onClick={handleCrearPila}
+                onMouseEnter={playHoverSound}
+                disabled={estaCargando}
+                title="Crea una pila vacía (también sirve para reiniciarla)"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-slate-200 bg-slate-700/50 border border-slate-500/40 hover:bg-slate-700 active:scale-95 transition-transform duration-200 cursor-pointer shrink-0 font-tech-header text-base tracking-wider whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Check className="w-5 h-5" />
+                Crear pila
+              </button>
+            </div>
+          </section>
+
+          {/* Insertar / Eliminar */}
           <section className="bg-[#0f1426]/85 backdrop-blur-xl border border-purple-500/30 rounded-2xl px-5 py-4 shadow-[0_0_35px_rgba(168,85,247,0.12)] flex flex-col gap-3">
             <label htmlFor="centroComercialInput" className="font-tech-header text-base font-bold text-slate-100 tracking-wide">
               Centro comercial:
@@ -418,16 +495,16 @@ export const StackPanel: React.FC<StackPanelProps> = ({ onBack }) => {
                 id="centroComercialInput"
                 type="text"
                 maxLength={MAX_CARACTERES_NOMBRE}
-                autoFocus
                 placeholder="Ej: Metrocentro"
                 value={nombreCentroComercial}
+                disabled={!pilaCreada}
                 onChange={(evento: React.ChangeEvent<HTMLInputElement>): void =>
                   setNombreCentroComercial(evento.target.value.replace(CARACTERES_NO_PERMITIDOS, ''))
                 }
                 onKeyDown={(evento: React.KeyboardEvent<HTMLInputElement>): void => {
                   if (evento.key === 'Enter' && !estaCargando) handlePush();
                 }}
-                className="w-full bg-[#03060d] border border-slate-500/50 focus:border-cyan-400 rounded-xl pl-4 pr-16 py-2.5 text-base text-white placeholder:text-slate-500 focus:outline-none transition-all font-mono-tech font-bold"
+                className="w-full bg-[#03060d] border border-slate-500/50 focus:border-cyan-400 rounded-xl pl-4 pr-16 py-2.5 text-base text-white placeholder:text-slate-500 focus:outline-none transition-all font-mono-tech font-bold disabled:opacity-50"
               />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-mono-tech text-slate-500">
                 {nombreCentroComercial.length}/{MAX_CARACTERES_NOMBRE}
@@ -439,7 +516,7 @@ export const StackPanel: React.FC<StackPanelProps> = ({ onBack }) => {
                 type="button"
                 onClick={handlePush}
                 onMouseEnter={playHoverSound}
-                disabled={estaCargando}
+                disabled={estaCargando || !pilaCreada}
                 className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-[#03060d] bg-cyan-400 hover:bg-cyan-300 hover:-translate-y-0.5 active:scale-95 transition-transform duration-200 cursor-pointer font-tech-header text-base tracking-wider whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Save className="w-5 h-5" />
@@ -450,27 +527,16 @@ export const StackPanel: React.FC<StackPanelProps> = ({ onBack }) => {
                 type="button"
                 onClick={handlePop}
                 onMouseEnter={playHoverSound}
-                disabled={estaCargando}
+                disabled={estaCargando || !pilaCreada}
                 className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-slate-200 bg-slate-700/50 border border-slate-500/40 hover:bg-slate-700 hover:-translate-y-0.5 active:scale-95 transition-transform duration-200 cursor-pointer font-tech-header text-base tracking-wider whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Trash2 className="w-5 h-5" />
                 Eliminar (Pop)
               </button>
             </div>
-
-            <button
-              type="button"
-              onClick={handleReiniciar}
-              onMouseEnter={playHoverSound}
-              disabled={estaCargando}
-              title="Volver al estado inicial"
-              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-bold text-slate-300 bg-transparent border border-slate-500/40 hover:bg-white/5 active:scale-95 transition-transform duration-200 cursor-pointer font-tech-header text-sm tracking-wider disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <RotateCcw className="w-4 h-4" />
-              Reiniciar
-            </button>
           </section>
 
+          {/* Resultado de los algoritmos */}
           <section className="bg-[#0f1426]/85 backdrop-blur-xl border border-cyan-500/30 rounded-2xl px-5 py-3 shadow-[0_0_35px_rgba(34,211,238,0.12)] flex flex-col gap-2">
             {indicadores.map((indicador: Indicador) => (
               <div key={indicador.etiqueta} className="flex items-center justify-between gap-3">
@@ -493,10 +559,10 @@ export const StackPanel: React.FC<StackPanelProps> = ({ onBack }) => {
       {/* FOOTER: estado a la izquierda, Atrás a la derecha */}
       <footer className="relative z-20 shrink-0 flex items-center justify-between gap-6 px-10 pt-2 pb-3">
         <div
-          className={`inline-flex items-center gap-2 min-w-0 max-w-[70%] px-4 py-2 rounded-full border backdrop-blur-md text-xs font-mono-tech transition-colors duration-300 ${ESTILOS_MENSAJE[estadoPila.tipoMensaje].pill}`}
+          className={`inline-flex items-start gap-2 min-w-0 max-w-[70%] px-4 py-2 rounded-2xl border backdrop-blur-md text-xs font-mono-tech transition-colors duration-300 ${ESTILOS_MENSAJE[estadoPila.tipoMensaje].pill}`}
         >
-          <span className={`w-2 h-2 shrink-0 rounded-full ${ESTILOS_MENSAJE[estadoPila.tipoMensaje].dot}`} />
-          <span className="truncate">{estadoPila.mensaje}</span>
+          <span className={`w-2 h-2 mt-1 shrink-0 rounded-full ${ESTILOS_MENSAJE[estadoPila.tipoMensaje].dot}`} />
+          <span className="break-words">{estadoPila.mensaje}</span>
         </div>
 
         <button
