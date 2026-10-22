@@ -16,6 +16,7 @@ export interface PolishStep {
   operator: string;
   subExpression: string;
   convertedSubExpression: string;
+  fullExpression: string;
 }
 
 // Colores consistentes según el tipo de operador para vincular Pila y Pasos
@@ -117,6 +118,7 @@ export const PolishNotationPanel: React.FC<PolishNotationPanelProps> = ({ onBack
   const cancelAnim = useRef<boolean>(false);
   const stepsContainerRef = useRef<HTMLDivElement | null>(null);
   const stackScrollRef = useRef<HTMLDivElement | null>(null);
+  const topStackRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     isMounted.current = true;
@@ -126,12 +128,22 @@ export const PolishNotationPanel: React.FC<PolishNotationPanelProps> = ({ onBack
     };
   }, []);
 
-  // Enfocar el elemento más reciente agregado al stack si se desborda
+  // Seguir el elemento más arriba de la pila (TOPE)
   useEffect(() => {
-    if (stackScrollRef.current) {
-      stackScrollRef.current.scrollTop = 0;
+    if (topStackRef.current) {
+      topStackRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
   }, [stackItems]);
+
+  // Seguir el paso más profundo de la lista de pasos
+  useEffect(() => {
+    if (stepsContainerRef.current) {
+      stepsContainerRef.current.scrollTo({
+        top: stepsContainerRef.current.scrollHeight,
+        behavior: 'smooth',
+      });
+    }
+  }, [steps, currentStepIdx]);
 
   // Fondo dinámico de red de partículas (idéntico a LinearMenuPanel)
   useEffect(() => {
@@ -338,13 +350,10 @@ export const PolishNotationPanel: React.FC<PolishNotationPanelProps> = ({ onBack
             operator: frame.paso.operador,
             subExpression: frame.paso.subExpresion,
             convertedSubExpression: frame.paso.subExpresionConvertida,
+            fullExpression: frame.paso.expresionCompleta || frame.paso.subExpresionConvertida,
           };
           setSteps((prev) => [...prev, newStep]);
           setCurrentStepIdx(newStep.stepNumber - 1);
-
-          if (stepsContainerRef.current) {
-            stepsContainerRef.current.scrollTop = stepsContainerRef.current.scrollHeight;
-          }
 
           await new Promise((r) => setTimeout(r, stepDelay));
         }
@@ -478,22 +487,43 @@ export const PolishNotationPanel: React.FC<PolishNotationPanelProps> = ({ onBack
         }}
       />
 
-      {/* ENCABEZADO: Título limpio */}
+      {/* ENCABEZADO: Título homologado en tamaño, estilo y diseño con las demás interfaces */}
       <header
-        className="relative z-10 w-full flex-shrink-0 flex items-center justify-between px-6 sm:px-10 pt-3 sm:pt-5 pb-1 font-tech-body"
+        className="relative z-10 shrink-0 text-center px-6 sm:px-10 pt-3 pb-1 font-tech-body"
         style={{ transform: `translate3d(${parallax.x * 0.3}px, 0, 0)` }}
       >
-        <h1 className="text-2xl sm:text-4xl lg:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-b from-white via-cyan-100 to-cyan-400 drop-shadow-[0_0_10px_rgba(34,211,238,0.3)] font-tech-header tracking-[0.12em] uppercase">
-          NOTACIÓN POLACA
+        <div className="absolute right-6 sm:right-10 top-3 sm:top-4 z-20">
+          <button
+            onClick={handleReset}
+            onMouseEnter={playHoverSound}
+            className="px-5 py-2 rounded-xl font-bold text-xs sm:text-sm tracking-wider uppercase transition-all active:scale-95 bg-amber-950/90 border border-amber-400 text-amber-200 hover:bg-amber-900 hover:text-white shadow-[0_0_15px_rgba(251,191,36,0.3)] cursor-pointer"
+          >
+            REINICIAR
+          </button>
+        </div>
+
+        <h1
+          className="font-tech-header font-extrabold uppercase leading-tight text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-white to-purple-300 drop-shadow-[0_0_25px_rgba(168,85,247,0.5)]"
+          style={{ fontSize: 'clamp(1.5rem, 6vh, 2.6rem)', letterSpacing: '0.08em' }}
+        >
+          Notación Polaca
         </h1>
 
-        <button
-          onClick={handleReset}
-          onMouseEnter={playHoverSound}
-          className="px-5 py-2 rounded-xl font-bold text-xs sm:text-sm tracking-wider uppercase transition-all active:scale-95 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 text-white shadow-md hover:shadow-orange-500/30 cursor-pointer"
-        >
-          REINICIAR
-        </button>
+        <div className="flex items-center justify-center gap-3 text-purple-200/90 mt-1">
+          <div className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+            <span className="h-[1px] w-8 sm:w-20 bg-gradient-to-r from-transparent to-cyan-400" />
+            <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_10px_#22d3ee]" />
+          </div>
+          <span className="tracking-wide font-bold text-slate-200 uppercase text-xs sm:text-sm">
+            Conversión de Expresiones (LIFO)
+          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-purple-400 shadow-[0_0_10px_#c084fc]" />
+            <span className="h-[1px] w-8 sm:w-20 bg-gradient-to-l from-transparent to-purple-400" />
+            <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />
+          </div>
+        </div>
       </header>
 
       {/* SECCIÓN SUPERIOR: Campo de entrada y controles de modalidad y velocidad */}
@@ -520,8 +550,8 @@ export const PolishNotationPanel: React.FC<PolishNotationPanelProps> = ({ onBack
             disabled={isAnimating}
             className={`shrink-0 px-6 sm:px-8 py-3 rounded-2xl font-bold text-xs sm:text-sm tracking-wider uppercase transition-all font-tech-header cursor-pointer active:scale-95 ${
               isAnimating
-                ? 'bg-slate-800/40 text-cyan-200/40 border border-cyan-800/30 cursor-not-allowed'
-                : 'bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white shadow-[0_0_25px_rgba(6,182,212,0.4)] border border-cyan-300/40'
+                ? 'bg-slate-800/80 text-slate-400 border border-slate-700 cursor-not-allowed'
+                : 'bg-gradient-to-r from-cyan-700 via-blue-700 to-indigo-700 hover:from-cyan-600 hover:to-indigo-600 text-white shadow-[0_0_25px_rgba(6,182,212,0.3)] border border-cyan-400/50'
             }`}
           >
             {isAnimating ? 'CONVIRTIENDO...' : 'CONVERTIR'}
@@ -539,7 +569,7 @@ export const PolishNotationPanel: React.FC<PolishNotationPanelProps> = ({ onBack
               className={`px-4 sm:px-5 py-1.5 rounded-lg font-extrabold text-xs sm:text-sm tracking-wider uppercase transition-all duration-300 cursor-pointer ${
                 mode === 'prefijo'
                   ? 'bg-cyan-950/90 border border-cyan-400 text-cyan-200 shadow-[0_0_15px_rgba(34,211,238,0.4)]'
-                  : 'text-slate-400 hover:text-slate-200'
+                  : 'text-slate-200 hover:text-white'
               }`}
             >
               Prefijo
@@ -552,7 +582,7 @@ export const PolishNotationPanel: React.FC<PolishNotationPanelProps> = ({ onBack
               className={`px-4 sm:px-5 py-1.5 rounded-lg font-extrabold text-xs sm:text-sm tracking-wider uppercase transition-all duration-300 cursor-pointer ${
                 mode === 'postfijo'
                   ? 'bg-purple-950/90 border border-purple-400 text-purple-200 shadow-[0_0_15px_rgba(168,85,247,0.4)]'
-                  : 'text-slate-400 hover:text-slate-200'
+                  : 'text-slate-200 hover:text-white'
               }`}
             >
               Postfijo
@@ -561,7 +591,7 @@ export const PolishNotationPanel: React.FC<PolishNotationPanelProps> = ({ onBack
 
           {/* Velocidad: Normal / Lento (se puede alternar en cualquier momento, incluso durante la animación) */}
           <div className="flex items-center gap-1.5 bg-[#0e172e]/80 border border-slate-700/60 rounded-xl p-1 shadow-sm">
-            <span className="text-[11px] font-bold tracking-wider uppercase text-slate-400 px-2 select-none">
+            <span className="text-[11px] font-bold tracking-wider uppercase text-slate-300 px-2 select-none">
               Velocidad:
             </span>
             <button
@@ -572,7 +602,7 @@ export const PolishNotationPanel: React.FC<PolishNotationPanelProps> = ({ onBack
               className={`px-3 py-1 rounded-lg font-extrabold text-xs tracking-wider uppercase transition-all duration-300 cursor-pointer ${
                 speed === 'normal'
                   ? 'bg-cyan-900/80 border border-cyan-400 text-cyan-200 shadow-[0_0_10px_rgba(34,211,238,0.3)]'
-                  : 'text-slate-400 hover:text-slate-200'
+                  : 'text-slate-200 hover:text-white'
               }`}
             >
               Normal
@@ -585,7 +615,7 @@ export const PolishNotationPanel: React.FC<PolishNotationPanelProps> = ({ onBack
               className={`px-3 py-1 rounded-lg font-extrabold text-xs tracking-wider uppercase transition-all duration-300 cursor-pointer ${
                 speed === 'lento'
                   ? 'bg-amber-900/80 border border-amber-400 text-amber-200 shadow-[0_0_10px_rgba(251,191,36,0.3)]'
-                  : 'text-slate-400 hover:text-slate-200'
+                  : 'text-slate-200 hover:text-white'
               }`}
             >
               Lento
@@ -647,26 +677,51 @@ export const PolishNotationPanel: React.FC<PolishNotationPanelProps> = ({ onBack
                     key={`step-${step.stepNumber}`}
                     className={`relative w-full px-4 py-3 rounded-xl border flex items-center justify-between transition-all duration-300 font-mono shadow-sm ${cardStyle}`}
                   >
-                    {/* Número de paso adjacente + Badge del operador con su color distintivo */}
+                    {/* Número de paso adjacente + Badge del operador liberado de la pila */}
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className="font-tech-header font-bold text-xs sm:text-sm text-cyan-400 bg-cyan-950/80 border border-cyan-500/40 px-2 py-0.5 rounded-md">
+                      <span className="font-tech-header font-bold text-xs sm:text-sm text-cyan-300 bg-cyan-950/80 border border-cyan-500/40 px-2 py-0.5 rounded-md">
                         #{step.stepNumber}
                       </span>
                       <span
                         className={`font-mono font-black text-xs px-2 py-0.5 rounded border ${opColor.badge}`}
+                        title={`Operador ${step.operator} liberado de la pila`}
                       >
                         {step.operator}
                       </span>
                     </div>
 
-                    {/* Reducción centrada */}
-                    <span
-                      className={`font-black text-xs sm:text-sm md:text-base tracking-wider text-center flex-1 mx-2 break-all ${
-                        isResultCard ? 'text-emerald-200' : 'text-amber-300'
-                      }`}
-                    >
-                      {step.subExpression} → {step.convertedSubExpression}
-                    </span>
+                    {/* Expresión progresiva centrada con el bloque convertido resaltado */}
+                    <div className="flex-1 mx-2 flex items-center justify-center text-center font-mono text-xs sm:text-sm md:text-base tracking-wider break-all">
+                      {(() => {
+                        const full = step.fullExpression || step.convertedSubExpression;
+                        const chunk = step.convertedSubExpression;
+                        if (!chunk || !full.includes(chunk)) {
+                          return (
+                            <span className={isResultCard ? 'text-emerald-200 font-black' : 'text-slate-100 font-bold'}>
+                              {full}
+                            </span>
+                          );
+                        }
+                        const idx = full.indexOf(chunk);
+                        const before = full.substring(0, idx);
+                        const after = full.substring(idx + chunk.length);
+                        return (
+                          <span className="inline-flex items-center justify-center flex-wrap gap-1">
+                            {before && <span className="text-slate-300">{before}</span>}
+                            <span
+                              className={`px-1.5 py-0.5 rounded border font-black transition-all ${
+                                isResultCard
+                                  ? 'bg-emerald-950/90 text-emerald-300 border-emerald-400'
+                                  : `${opColor.bg} ${opColor.text} ${opColor.border} ${opColor.shadow}`
+                              }`}
+                            >
+                              {chunk}
+                            </span>
+                            {after && <span className="text-slate-300">{after}</span>}
+                          </span>
+                        );
+                      })()}
+                    </div>
 
                     {/* Indicador de resultado final para el último paso */}
                     {isResultCard && (
@@ -692,11 +747,11 @@ export const PolishNotationPanel: React.FC<PolishNotationPanelProps> = ({ onBack
             </span>
           </div>
 
-          {/* Contenedor vertical de la Pila de gran altura para alojar cómodamente más de 5 elementos */}
+          {/* Contenedor vertical de la Pila con altura compacta para alojar cómodamente más de 10 elementos */}
           <div className="flex-1 flex flex-col items-center justify-center relative min-h-0">
             <div
               ref={stackScrollRef}
-              className="relative w-48 sm:w-56 h-[320px] sm:h-[380px] md:h-[400px] border-b-4 border-l-2 border-r-2 border-cyan-400/70 rounded-b-2xl bg-[#090e1c]/80 shadow-[0_0_25px_rgba(6,182,212,0.15)] flex flex-col-reverse items-center justify-start gap-2 p-3 overflow-y-auto custom-scrollbar"
+              className="relative w-48 sm:w-56 h-[320px] sm:h-[380px] md:h-[400px] border-b-4 border-l-2 border-r-2 border-cyan-400/70 rounded-b-2xl bg-[#090e1c]/80 shadow-[0_0_25px_rgba(6,182,212,0.15)] flex flex-col-reverse items-center justify-start gap-1.5 p-3 overflow-y-auto custom-scrollbar"
             >
               {/* Elementos apilados verticalmente de abajo hacia arriba */}
               {stackItems.length === 0 ? (
@@ -711,13 +766,14 @@ export const PolishNotationPanel: React.FC<PolishNotationPanelProps> = ({ onBack
                   return (
                     <div
                       key={`stack-${idx}-${op}`}
-                      className={`relative w-40 sm:w-44 h-10 sm:h-11 rounded-lg flex items-center justify-center font-mono font-black text-xl transition-all duration-300 animate-stack-in border-2 ${opColor.bg} ${opColor.border} ${opColor.text} ${opColor.shadow} ${
+                      ref={isTop ? topStackRef : null}
+                      className={`relative w-40 sm:w-44 h-7 sm:h-8 rounded-lg flex items-center justify-center font-mono font-black text-base sm:text-lg transition-all duration-300 animate-stack-in border-2 ${opColor.bg} ${opColor.border} ${opColor.text} ${opColor.shadow} ${
                         isTop ? 'scale-105 z-20 ring-2 ring-cyan-300/60' : 'z-10'
                       }`}
                     >
                       {/* Puntero de TOPE sobre el operador más reciente */}
                       {isTop && (
-                        <div className="absolute -top-7 flex items-center gap-1 text-cyan-300 font-mono font-bold text-[10px] uppercase px-2 py-0.5 rounded bg-cyan-950/90 border border-cyan-400/60 shadow-[0_0_10px_rgba(34,211,238,0.5)] animate-bounce">
+                        <div className="absolute -top-6 flex items-center gap-1 text-cyan-300 font-mono font-bold text-[9px] uppercase px-2 py-0.5 rounded bg-cyan-950/90 border border-cyan-400/60 shadow-[0_0_10px_rgba(34,211,238,0.5)] animate-bounce">
                           <span>TOPE</span>
                           <span>↓</span>
                         </div>
@@ -743,7 +799,7 @@ export const PolishNotationPanel: React.FC<PolishNotationPanelProps> = ({ onBack
         <button
           onClick={handleBack}
           onMouseEnter={playHoverSound}
-          className="relative inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-white bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-[length:200%_auto] hover:bg-right shadow-lg shadow-indigo-600/40 hover:shadow-purple-500/70 hover:-translate-y-1 active:translate-y-0 active:scale-95 transition-all duration-300 group cursor-pointer border border-indigo-300/30"
+          className="relative inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-white bg-gradient-to-r from-blue-700 via-indigo-700 to-purple-700 bg-[length:200%_auto] hover:bg-right shadow-lg shadow-indigo-700/40 hover:shadow-purple-600/70 hover:-translate-y-1 active:translate-y-0 active:scale-95 transition-all duration-300 group cursor-pointer border border-indigo-400/40"
         >
           <svg
             className="w-4 h-4 transform group-hover:-translate-x-1.5 transition-transform duration-300"

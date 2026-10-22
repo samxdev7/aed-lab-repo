@@ -4,5 +4,6 @@ public record PasoNotacionPolacaDto(
     int numeroPaso,
     String operador,
     String subExpresion,
-    String subExpresionConvertida
+    String subExpresionConvertida,
+    String expresionCompleta
 ) {}
