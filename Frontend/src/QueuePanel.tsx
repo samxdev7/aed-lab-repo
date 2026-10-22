@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 
-import { ArrowLeft, ArrowDown, ArrowUp, Save, Trash2, RotateCcw } from 'lucide-react';
+import { ArrowLeft, ArrowDown, ArrowUp, Check, Save, Trash2, RotateCcw } from 'lucide-react';
 
 import { useSoundEffects } from './useSoundEffects';
 import { useNotification } from './NotificationContext';
 import {
   obtenerEstadoCola,
+  definirTamanoCola,
   encolarPersona,
   desencolarPersona,
   reiniciarCola,
@@ -18,9 +19,12 @@ export interface QueuePanelProps {
   onBack: () => void;
 }
 
-// Deben coincidir con ColaServicio.MAX y ColaServicio.LONGITUD_MAXIMA_NOMBRE del backend
-const CAPACIDAD_COLA: number = 8;
+// Deben coincidir con ColaServicio.TAMANO_MAXIMO_PERMITIDO y ColaServicio.LONGITUD_MAXIMA_NOMBRE del backend
+const TAMANO_MAXIMO_PERMITIDO: number = 100;
 const LONGITUD_MAXIMA_NOMBRE: number = 12;
+
+// Ancho mínimo de cada casilla: si no caben todas en pantalla, aparece el scroll horizontal
+const ANCHO_MINIMO_CASILLA_REM: number = 6.5;
 
 type MensajeEstado = { tipo: TipoMensajeCola; texto: string };
 type EstiloMensaje = { pill: string; dot: string };
@@ -35,8 +39,8 @@ const ESTILOS_MENSAJE: Record<TipoMensajeCola, EstiloMensaje> = {
 };
 
 // Centro horizontal (en %) de cada casilla, para colocar los punteros
-const centroCasillaEnPorcentaje = (indiceCasilla: number): number =>
-  ((indiceCasilla + 0.5) * 100) / CAPACIDAD_COLA;
+const centroCasillaEnPorcentaje = (indiceCasilla: number, totalCasillas: number): number =>
+  ((indiceCasilla + 0.5) * 100) / totalCasillas;
 
 const obtenerTextoError = (error: unknown): string =>
   error instanceof Error ? error.message : 'No se pudo conectar con el servidor.';
@@ -62,19 +66,19 @@ const obtenerClaseCasilla = (
 
 export const QueuePanel: React.FC<QueuePanelProps> = ({ onBack }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const contenedorScrollRef = useRef<HTMLDivElement | null>(null);
   const { playClickSound, playHoverSound, playQueueSlide, playQueueOut, playTone } = useSoundEffects();
   const { showNotification } = useNotification();
 
   // ========================================================
   // ESTADO DE LA COLA (CONECTADO AL BACKEND)
   // ========================================================
-  const [casillasCola, setCasillasCola] = useState<ContenidoCasilla[]>(
-    Array<ContenidoCasilla>(CAPACIDAD_COLA).fill(null)
-  );
+  const [casillasCola, setCasillasCola] = useState<ContenidoCasilla[]>([]);
   const [indiceFrente, setIndiceFrente] = useState<number>(-1);
   const [indiceFinal, setIndiceFinal] = useState<number>(-1);
   const [clientesEnEspera, setClientesEnEspera] = useState<number>(0);
 
+  const [tamanoIngresado, setTamanoIngresado] = useState<string>('');
   const [nombreIngresado, setNombreIngresado] = useState<string>('');
   const [mensajeEstado, setMensajeEstado] = useState<MensajeEstado>({
     tipo: 'info',
@@ -83,6 +87,10 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({ onBack }) => {
   const [indiceAnimado, setIndiceAnimado] = useState<number | null>(null);
   const [personaSaliente, setPersonaSaliente] = useState<PersonaSaliente | null>(null);
   const [estaCargando, setEstaCargando] = useState<boolean>(false);
+
+  // El tamaño de la cola (Max) es la cantidad de casillas que envía el backend; 0 = aún no definido
+  const capacidad: number = casillasCola.length;
+  const tamanoConfirmado: boolean = capacidad > 0 && Number(tamanoIngresado) === capacidad;
 
   const aplicarEstado = (estado: ColaEstado): void => {
     setCasillasCola(estado.cola);
@@ -99,12 +107,21 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({ onBack }) => {
     showNotification('error', titulo, textoError);
   };
 
+  // Centra la casilla indicada dentro del scroll horizontal (solo tiene efecto si la cola no cabe en pantalla)
+  const desplazarHastaCasilla = (indiceCasilla: number): void => {
+    const contenedor: HTMLDivElement | null = contenedorScrollRef.current;
+    if (!contenedor || capacidad === 0) return;
+    const centroCasillaPx: number = ((indiceCasilla + 0.5) / capacidad) * contenedor.scrollWidth;
+    contenedor.scrollTo({ left: centroCasillaPx - contenedor.clientWidth / 2, behavior: 'smooth' });
+  };
+
   // Carga inicial del estado desde el backend
   useEffect(() => {
     const cargarEstadoInicial = async (): Promise<void> => {
       try {
         const estadoInicial: ColaEstado = await obtenerEstadoCola();
         aplicarEstado(estadoInicial);
+        if (estadoInicial.cola.length > 0) setTamanoIngresado(String(estadoInicial.cola.length));
       } catch {
         setMensajeEstado({
           tipo: 'warn',
@@ -116,8 +133,35 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({ onBack }) => {
   }, []);
 
   // ========================================================
-  // OPERACIONES: ENCOLAR Y DESENCOLAR (ALGORITMOS EN EL BACKEND)
+  // OPERACIONES: TAMAÑO, ENCOLAR Y DESENCOLAR (ALGORITMOS EN EL BACKEND)
   // ========================================================
+  const manejarDefinirTamano = async (): Promise<void> => {
+    const tamanoNumerico: number = Number(tamanoIngresado);
+    if (!Number.isInteger(tamanoNumerico) || tamanoNumerico < 1 || tamanoNumerico > TAMANO_MAXIMO_PERMITIDO) {
+      playTone(200, 'sawtooth', 0.25, 0.2);
+      showNotification(
+        'warning',
+        'Tamaño Inválido',
+        `El tamaño de la cola debe ser un entero entre 1 y ${TAMANO_MAXIMO_PERMITIDO}.`
+      );
+      return;
+    }
+
+    try {
+      setEstaCargando(true);
+      playClickSound();
+      const estado: ColaEstado = await definirTamanoCola(tamanoNumerico);
+      setNombreIngresado('');
+      aplicarEstado(estado);
+      contenedorScrollRef.current?.scrollTo({ left: 0 });
+      showNotification('success', 'Cola Creada', estado.mensaje);
+    } catch (error: unknown) {
+      mostrarError(error, 'Error al Definir el Tamaño');
+    } finally {
+      setEstaCargando(false);
+    }
+  };
+
   const manejarEncolar = async (): Promise<void> => {
     const nombreLimpio: string = nombreIngresado.trim();
     if (nombreLimpio === '') {
@@ -133,6 +177,7 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({ onBack }) => {
       playQueueSlide();
       setNombreIngresado('');
       aplicarEstado(estado);
+      desplazarHastaCasilla(estado.finalCola);
       if (estado.indiceAfectado !== null) {
         setIndiceAnimado(estado.indiceAfectado);
         setTimeout((): void => setIndiceAnimado(null), 600);
@@ -156,6 +201,7 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({ onBack }) => {
         setTimeout((): void => setPersonaSaliente(null), 500);
       }
       aplicarEstado(estado);
+      if (estado.frente !== -1) desplazarHastaCasilla(estado.frente);
       showNotification('info', 'Persona Atendida', estado.mensaje);
     } catch (error: unknown) {
       mostrarError(error, 'Error al Desencolar');
@@ -171,6 +217,7 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({ onBack }) => {
       setNombreIngresado('');
       const estado: ColaEstado = await reiniciarCola();
       aplicarEstado(estado);
+      contenedorScrollRef.current?.scrollTo({ left: 0 });
       showNotification('info', 'Cola Reiniciada', 'La cola ha sido vaciada exitosamente.');
     } catch (error: unknown) {
       mostrarError(error, 'Error al Reiniciar');
@@ -184,8 +231,12 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({ onBack }) => {
     setNombreIngresado(soloLetrasYEspacios);
   };
 
-  const manejarTecla = (evento: React.KeyboardEvent<HTMLInputElement>): void => {
+  const manejarTeclaNombre = (evento: React.KeyboardEvent<HTMLInputElement>): void => {
     if (evento.key === 'Enter' && !estaCargando) void manejarEncolar();
+  };
+
+  const manejarTeclaTamano = (evento: React.KeyboardEvent<HTMLInputElement>): void => {
+    if (evento.key === 'Enter' && !estaCargando) void manejarDefinirTamano();
   };
 
   // Fondo animado de partículas neón
@@ -284,6 +335,12 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({ onBack }) => {
           .celda-atendida {
             background-image: repeating-linear-gradient(135deg, transparent 0, transparent 6px, rgba(148,163,184,0.14) 6px, rgba(148,163,184,0.14) 12px);
           }
+
+          /* Scroll horizontal de la cola cuando hay más casillas de las que caben */
+          .scroll-cola::-webkit-scrollbar { height: 6px; }
+          .scroll-cola::-webkit-scrollbar-track { background: rgba(15, 20, 38, 0.6); border-radius: 4px; }
+          .scroll-cola::-webkit-scrollbar-thumb { background: rgba(52, 211, 153, 0.35); border-radius: 4px; }
+          .scroll-cola::-webkit-scrollbar-thumb:hover { background: rgba(52, 211, 153, 0.6); }
         `}
       </style>
 
@@ -346,127 +403,137 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({ onBack }) => {
               <div className="w-24 h-2 rounded-full bg-white/10 overflow-hidden">
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-cyan-400 transition-all duration-500"
-                  style={{ width: `${(clientesEnEspera / CAPACIDAD_COLA) * 100}%` }}
+                  style={{ width: `${capacidad > 0 ? (clientesEnEspera / capacidad) * 100 : 0}%` }}
                 />
               </div>
               <span className="font-mono-tech text-xs font-bold text-emerald-300">
-                {clientesEnEspera}/{CAPACIDAD_COLA}
+                {clientesEnEspera}/{capacidad}
               </span>
             </div>
           </div>
 
-          {/* Puntero FRENTE (arriba, apunta hacia abajo) */}
-          <div className="relative h-9">
-            <div
-              className="absolute bottom-0"
-              style={{
-                left: `${centroCasillaEnPorcentaje(Math.max(indiceFrente, 0))}%`,
-                transform: 'translateX(-50%)',
-                opacity: clientesEnEspera > 0 ? 1 : 0,
-                transition: 'left 0.55s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s',
-              }}
-            >
-              <div className="flex flex-col items-center anim-arrow">
-                <span className="text-[11px] font-extrabold text-rose-400 font-tech-header uppercase tracking-wider drop-shadow-[0_0_6px_#f43f5e]">
-                  Frente
-                </span>
-                <ArrowDown className="w-4 h-4 text-rose-500 -mt-0.5" />
-              </div>
+          {capacidad === 0 ? (
+            <div className="my-3 h-40 flex items-center justify-center rounded-xl border border-dashed border-white/10 text-sm font-mono-tech text-slate-500">
+              Defina el tamaño de la cola para comenzar
             </div>
-          </div>
-
-          {/* Casillas 0..CAPACIDAD_COLA-1 */}
-          <div className="flex">
-            {casillasCola.map((nombre: ContenidoCasilla, indice: number) => {
-              const esFrente: boolean = clientesEnEspera > 0 && indice === indiceFrente;
-              const esFinal: boolean = clientesEnEspera > 0 && indice === indiceFinal;
-              const yaAtendida: boolean = indiceFrente > 0 && indice < indiceFrente;
-              const estaAnimada: boolean = indiceAnimado === indice;
-              const nombreCorto: boolean = (nombre?.length ?? 0) <= 6;
-
-              return (
-                <div key={indice} className="px-0.5 sm:px-1" style={{ width: `${100 / CAPACIDAD_COLA}%` }}>
+          ) : (
+            <div ref={contenedorScrollRef} className="scroll-cola overflow-x-auto px-3 pb-1">
+              <div style={{ minWidth: `${capacidad * ANCHO_MINIMO_CASILLA_REM}rem` }}>
+                {/* Puntero FRENTE (arriba, apunta hacia abajo) */}
+                <div className="relative h-9">
                   <div
-                    className={`relative w-full rounded-xl border flex items-center justify-center transition-all duration-300 ${obtenerClaseCasilla(
-                      esFrente,
-                      esFinal,
-                      yaAtendida,
-                      nombre !== null
-                    )} ${estaAnimada ? 'scale-110 shadow-[0_0_22px_#34d399] z-10' : ''}`}
-                    style={{ height: 'clamp(2.75rem, 9vh, 4.5rem)' }}
+                    className="absolute bottom-0"
+                    style={{
+                      left: `${centroCasillaEnPorcentaje(Math.max(indiceFrente, 0), capacidad)}%`,
+                      transform: 'translateX(-50%)',
+                      opacity: clientesEnEspera > 0 ? 1 : 0,
+                      transition: 'left 0.55s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s',
+                    }}
                   >
-                    <span
-                      className={`block max-w-full truncate px-1 font-black font-mono-tech ${
-                        esFrente
-                          ? 'text-white'
-                          : esFinal
-                          ? 'text-cyan-200'
-                          : nombre !== null
-                          ? 'text-slate-100'
-                          : 'text-slate-600'
-                      } ${estaAnimada ? 'anim-cell-pop' : ''}`}
-                      style={{
-                        fontSize: nombreCorto
-                          ? 'clamp(1rem, 3vh, 1.6rem)'
-                          : 'clamp(0.6rem, 1.8vh, 0.85rem)',
-                      }}
-                    >
-                      {obtenerTextoCasilla(nombre, yaAtendida)}
-                    </span>
-
-                    {/* Persona que acaba de ser atendida */}
-                    {personaSaliente?.indice === indice && (
-                      <span
-                        className="absolute inset-0 flex items-center justify-center px-1 font-black font-mono-tech text-rose-300 anim-cell-leave pointer-events-none truncate"
-                        style={{ fontSize: 'clamp(0.6rem, 1.8vh, 0.85rem)' }}
-                      >
-                        {personaSaliente.nombre}
+                    <div className="flex flex-col items-center anim-arrow">
+                      <span className="text-[11px] font-extrabold text-rose-400 font-tech-header uppercase tracking-wider drop-shadow-[0_0_6px_#f43f5e]">
+                        Frente
                       </span>
-                    )}
+                      <ArrowDown className="w-4 h-4 text-rose-500 -mt-0.5" />
+                    </div>
                   </div>
                 </div>
-              );
-            })}
-          </div>
 
-          {/* Índices */}
-          <div className="flex mt-1">
-            {casillasCola.map((_: ContenidoCasilla, indice: number) => (
-              <span
-                key={indice}
-                className={`text-center font-mono-tech text-[11px] sm:text-xs font-bold ${
-                  clientesEnEspera > 0 && indice === indiceFrente
-                    ? 'text-rose-300 font-extrabold'
-                    : clientesEnEspera > 0 && indice === indiceFinal
-                    ? 'text-cyan-300 font-extrabold'
-                    : 'text-slate-400'
-                }`}
-                style={{ width: `${100 / CAPACIDAD_COLA}%` }}
-              >
-                {indice}
-              </span>
-            ))}
-          </div>
+                {/* Casillas 0..capacidad-1 */}
+                <div className="flex">
+                  {casillasCola.map((nombre: ContenidoCasilla, indice: number) => {
+                    const esFrente: boolean = clientesEnEspera > 0 && indice === indiceFrente;
+                    const esFinal: boolean = clientesEnEspera > 0 && indice === indiceFinal;
+                    const yaAtendida: boolean = indiceFrente > 0 && indice < indiceFrente;
+                    const estaAnimada: boolean = indiceAnimado === indice;
+                    const nombreCorto: boolean = (nombre?.length ?? 0) <= 6;
 
-          {/* Puntero FINAL (abajo, apunta hacia arriba) */}
-          <div className="relative h-9">
-            <div
-              className="absolute top-0"
-              style={{
-                left: `${centroCasillaEnPorcentaje(Math.max(indiceFinal, 0))}%`,
-                transform: 'translateX(-50%)',
-                opacity: clientesEnEspera > 0 ? 1 : 0,
-                transition: 'left 0.55s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s',
-              }}
-            >
-              <div className="flex flex-col items-center anim-arrow">
-                <ArrowUp className="w-4 h-4 text-cyan-400 -mb-0.5" />
-                <span className="text-[11px] font-extrabold text-cyan-300 font-tech-header uppercase tracking-wider drop-shadow-[0_0_6px_#22d3ee]">
-                  Final
-                </span>
+                    return (
+                      <div key={indice} className="shrink-0 px-0.5 sm:px-1" style={{ width: `${100 / capacidad}%` }}>
+                        <div
+                          className={`relative w-full rounded-xl border flex items-center justify-center transition-all duration-300 ${obtenerClaseCasilla(
+                            esFrente,
+                            esFinal,
+                            yaAtendida,
+                            nombre !== null
+                          )} ${estaAnimada ? 'scale-110 shadow-[0_0_22px_#34d399] z-10' : ''}`}
+                          style={{ height: 'clamp(2.75rem, 9vh, 4.5rem)' }}
+                        >
+                          <span
+                            className={`block max-w-full truncate px-1 font-black font-mono-tech ${
+                              esFrente
+                                ? 'text-white'
+                                : esFinal
+                                ? 'text-cyan-200'
+                                : nombre !== null
+                                ? 'text-slate-100'
+                                : 'text-slate-600'
+                            } ${estaAnimada ? 'anim-cell-pop' : ''}`}
+                            style={{
+                              fontSize: nombreCorto
+                                ? 'clamp(1rem, 3vh, 1.6rem)'
+                                : 'clamp(0.6rem, 1.8vh, 0.85rem)',
+                            }}
+                          >
+                            {obtenerTextoCasilla(nombre, yaAtendida)}
+                          </span>
+
+                          {/* Persona que acaba de ser atendida */}
+                          {personaSaliente?.indice === indice && (
+                            <span
+                              className="absolute inset-0 flex items-center justify-center px-1 font-black font-mono-tech text-rose-300 anim-cell-leave pointer-events-none truncate"
+                              style={{ fontSize: 'clamp(0.6rem, 1.8vh, 0.85rem)' }}
+                            >
+                              {personaSaliente.nombre}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Índices */}
+                <div className="flex mt-1">
+                  {casillasCola.map((_: ContenidoCasilla, indice: number) => (
+                    <span
+                      key={indice}
+                      className={`shrink-0 text-center font-mono-tech text-[11px] sm:text-xs font-bold ${
+                        clientesEnEspera > 0 && indice === indiceFrente
+                          ? 'text-rose-300 font-extrabold'
+                          : clientesEnEspera > 0 && indice === indiceFinal
+                          ? 'text-cyan-300 font-extrabold'
+                          : 'text-slate-400'
+                      }`}
+                      style={{ width: `${100 / capacidad}%` }}
+                    >
+                      {indice}
+                    </span>
+                  ))}
+                </div>
+
+                {/* Puntero FINAL (abajo, apunta hacia arriba) */}
+                <div className="relative h-9">
+                  <div
+                    className="absolute top-0"
+                    style={{
+                      left: `${centroCasillaEnPorcentaje(Math.max(indiceFinal, 0), capacidad)}%`,
+                      transform: 'translateX(-50%)',
+                      opacity: clientesEnEspera > 0 ? 1 : 0,
+                      transition: 'left 0.55s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s',
+                    }}
+                  >
+                    <div className="flex flex-col items-center anim-arrow">
+                      <ArrowUp className="w-4 h-4 text-cyan-400 -mb-0.5" />
+                      <span className="text-[11px] font-extrabold text-cyan-300 font-tech-header uppercase tracking-wider drop-shadow-[0_0_6px_#22d3ee]">
+                        Final
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Aviso: aparece cuando ya hay casillas atendidas (explica el desbordamiento con espacio libre) */}
           <div className="h-5 flex items-center justify-center">
@@ -479,67 +546,115 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({ onBack }) => {
         </section>
 
         {/* TARJETA: CONTROLES */}
-        <section className="bg-[#0f1426]/85 backdrop-blur-xl border border-cyan-500/30 rounded-2xl px-5 py-4 shadow-[0_0_35px_rgba(34,211,238,0.12)] flex items-center gap-4">
-          <label
-            htmlFor="nombreCliente"
-            className="font-tech-header text-base font-bold text-slate-100 tracking-wide shrink-0 whitespace-nowrap"
-          >
-            Nombre del cliente:
-          </label>
+        <section className="bg-[#0f1426]/85 backdrop-blur-xl border border-cyan-500/30 rounded-2xl px-5 py-4 shadow-[0_0_35px_rgba(34,211,238,0.12)] flex flex-col gap-3">
+          {/* Fila 1: tamaño de la cola (Max) */}
+          <div className="flex items-center gap-4">
+            <label
+              htmlFor="tamanoCola"
+              className="font-tech-header text-base font-bold text-slate-100 tracking-wide shrink-0 whitespace-nowrap"
+            >
+              Tamaño de la cola:
+            </label>
 
-          <div className="relative flex-1 min-w-[10rem]">
             <input
-              id="nombreCliente"
-              type="text"
-              maxLength={LONGITUD_MAXIMA_NOMBRE}
+              id="tamanoCola"
+              type="number"
+              min={1}
+              max={TAMANO_MAXIMO_PERMITIDO}
               autoFocus
-              placeholder="Ej: María, Carlos Pérez"
-              value={nombreIngresado}
-              onChange={manejarCambioNombre}
-              onKeyDown={manejarTecla}
+              placeholder="Ej: 5"
+              value={tamanoIngresado}
+              onChange={(evento: React.ChangeEvent<HTMLInputElement>): void => setTamanoIngresado(evento.target.value)}
+              onKeyDown={manejarTeclaTamano}
               disabled={estaCargando}
-              className="w-full bg-[#03060d] border border-slate-500/50 focus:border-emerald-400 rounded-xl pl-4 pr-14 py-2.5 text-lg text-white placeholder:text-slate-500 focus:outline-none transition-all font-mono-tech font-bold tracking-wide disabled:opacity-50"
+              className="w-24 bg-[#03060d] border border-slate-500/50 focus:border-emerald-400 rounded-xl px-3 py-2 text-lg text-center text-white placeholder:text-slate-500 focus:outline-none transition-all font-mono-tech font-bold disabled:opacity-50"
             />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-mono-tech text-slate-500">
-              {nombreIngresado.length}/{LONGITUD_MAXIMA_NOMBRE}
+
+            <button
+              type="button"
+              onClick={manejarDefinirTamano}
+              onMouseEnter={playHoverSound}
+              disabled={estaCargando}
+              title="Crea una cola vacía con este tamaño"
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl border font-bold hover:-translate-y-0.5 active:scale-95 transition-transform duration-200 cursor-pointer shrink-0 font-tech-header text-base tracking-wider disabled:opacity-50 disabled:cursor-not-allowed ${
+                tamanoConfirmado
+                  ? 'bg-emerald-400 text-[#03060d] border-emerald-300'
+                  : 'bg-transparent text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/10'
+              }`}
+            >
+              <Check className="w-5 h-5" />
+              Crear cola
+            </button>
+
+            <span className="ml-auto text-[11px] font-mono-tech text-slate-500 text-right">
+              De 1 a {TAMANO_MAXIMO_PERMITIDO} casillas.
             </span>
           </div>
 
-          <button
-            type="button"
-            onClick={manejarEncolar}
-            onMouseEnter={playHoverSound}
-            disabled={estaCargando}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-[#03060d] bg-emerald-400 hover:bg-emerald-300 hover:-translate-y-0.5 active:scale-95 transition-transform duration-200 cursor-pointer shrink-0 font-tech-header text-base tracking-wider disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Save className="w-5 h-5" />
-            Encolar
-          </button>
+          <span className="h-px w-full bg-white/10" />
 
-          <span className="w-px h-8 bg-white/10 shrink-0" />
+          {/* Fila 2: operaciones */}
+          <div className="flex items-center gap-4">
+            <label
+              htmlFor="nombreCliente"
+              className="font-tech-header text-base font-bold text-slate-100 tracking-wide shrink-0 whitespace-nowrap"
+            >
+              Nombre del cliente:
+            </label>
 
-          <button
-            type="button"
-            onClick={manejarDesencolar}
-            onMouseEnter={playHoverSound}
-            disabled={estaCargando || clientesEnEspera === 0}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-slate-200 bg-slate-700/50 border border-slate-500/40 hover:bg-slate-700 hover:-translate-y-0.5 active:scale-95 transition-transform duration-200 cursor-pointer shrink-0 font-tech-header text-base tracking-wider disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <Trash2 className="w-5 h-5" />
-            Desencolar
-          </button>
+            <div className="relative flex-1 min-w-[10rem]">
+              <input
+                id="nombreCliente"
+                type="text"
+                maxLength={LONGITUD_MAXIMA_NOMBRE}
+                placeholder="Ej: María, Carlos Pérez"
+                value={nombreIngresado}
+                onChange={manejarCambioNombre}
+                onKeyDown={manejarTeclaNombre}
+                disabled={estaCargando || capacidad === 0}
+                className="w-full bg-[#03060d] border border-slate-500/50 focus:border-emerald-400 rounded-xl pl-4 pr-14 py-2.5 text-lg text-white placeholder:text-slate-500 focus:outline-none transition-all font-mono-tech font-bold tracking-wide disabled:opacity-50"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-mono-tech text-slate-500">
+                {nombreIngresado.length}/{LONGITUD_MAXIMA_NOMBRE}
+              </span>
+            </div>
 
-          <button
-            type="button"
-            onClick={manejarReiniciar}
-            onMouseEnter={playHoverSound}
-            disabled={estaCargando}
-            title="Volver al estado inicial"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-slate-300 bg-transparent border border-slate-500/40 hover:bg-white/5 hover:-translate-y-0.5 active:scale-95 transition-transform duration-200 cursor-pointer shrink-0 font-tech-header text-base tracking-wider disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <RotateCcw className="w-4 h-4" />
-            Reiniciar
-          </button>
+            <button
+              type="button"
+              onClick={manejarEncolar}
+              onMouseEnter={playHoverSound}
+              disabled={estaCargando || capacidad === 0}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-[#03060d] bg-emerald-400 hover:bg-emerald-300 hover:-translate-y-0.5 active:scale-95 transition-transform duration-200 cursor-pointer shrink-0 font-tech-header text-base tracking-wider disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Save className="w-5 h-5" />
+              Encolar
+            </button>
+
+            <span className="w-px h-8 bg-white/10 shrink-0" />
+
+            <button
+              type="button"
+              onClick={manejarDesencolar}
+              onMouseEnter={playHoverSound}
+              disabled={estaCargando || clientesEnEspera === 0}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-slate-200 bg-slate-700/50 border border-slate-500/40 hover:bg-slate-700 hover:-translate-y-0.5 active:scale-95 transition-transform duration-200 cursor-pointer shrink-0 font-tech-header text-base tracking-wider disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <Trash2 className="w-5 h-5" />
+              Desencolar
+            </button>
+
+            <button
+              type="button"
+              onClick={manejarReiniciar}
+              onMouseEnter={playHoverSound}
+              disabled={estaCargando || capacidad === 0}
+              title="Vaciar la cola conservando el tamaño"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-slate-300 bg-transparent border border-slate-500/40 hover:bg-white/5 hover:-translate-y-0.5 active:scale-95 transition-transform duration-200 cursor-pointer shrink-0 font-tech-header text-base tracking-wider disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <RotateCcw className="w-4 h-4" />
+              Reiniciar
+            </button>
+          </div>
         </section>
       </main>
 

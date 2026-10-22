@@ -26,3 +26,6 @@ export const desencolarPersona = (): Promise<ColaEstado> =>
 
 export const reiniciarCola = (): Promise<ColaEstado> =>
   apiRequest<ColaEstado>(`${URL_COLA}/reiniciar`, { method: 'POST' });
+
+export const definirTamanoCola = (tamanoCola: number): Promise<ColaEstado> =>
+  apiRequest<ColaEstado>(`${URL_COLA}/tamano`, { method: 'POST', body: { tamano: tamanoCola } });
