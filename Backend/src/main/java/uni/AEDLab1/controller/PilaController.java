@@ -24,7 +24,7 @@ public class PilaController {
     }
 
     @PostMapping("/push")
-    public ResponseEntity<?> push(@RequestBody PilaPeticionDto peticion) {
+    public ResponseEntity<?> push(@jakarta.validation.Valid @RequestBody PilaPeticionDto peticion) {
         try {
             return ResponseEntity.ok(pilaServicio.push(peticion.centroComercial()));
         } catch (IllegalArgumentException | IllegalStateException e) {

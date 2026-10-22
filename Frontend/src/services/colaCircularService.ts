@@ -13,6 +13,21 @@ export interface ColaCircularEstado {
   indiceAfectado: number | null;
 }
 
+const extraerMensajeError = async (response: Response): Promise<string> => {
+  try {
+    const errorJson = await response.json();
+    if (errorJson && errorJson.message) {
+      return errorJson.message;
+    }
+  } catch {
+    try {
+      const text = await response.text();
+      if (text) return text;
+    } catch { /* ignore */ }
+  }
+  return `Error HTTP: ${response.status}`;
+};
+
 export const obtenerEstadoColaCircular = async (): Promise<ColaCircularEstado> => {
   const response = await fetch(`${BASE_URL}/estado`, {
     method: 'GET',
@@ -20,8 +35,8 @@ export const obtenerEstadoColaCircular = async (): Promise<ColaCircularEstado> =
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(errorText || `Error HTTP: ${response.status}`);
+    const errorMsg = await extraerMensajeError(response);
+    throw new Error(errorMsg);
   }
 
   return await response.json();
@@ -35,8 +50,8 @@ export const encolarTrabajo = async (estacion: string): Promise<ColaCircularEsta
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(errorText || `Error HTTP: ${response.status}`);
+    const errorMsg = await extraerMensajeError(response);
+    throw new Error(errorMsg);
   }
 
   return await response.json();
@@ -49,8 +64,8 @@ export const desencolarTrabajo = async (): Promise<ColaCircularEstado> => {
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(errorText || `Error HTTP: ${response.status}`);
+    const errorMsg = await extraerMensajeError(response);
+    throw new Error(errorMsg);
   }
 
   return await response.json();
@@ -63,8 +78,8 @@ export const reiniciarColaCircular = async (): Promise<ColaCircularEstado> => {
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(errorText || `Error HTTP: ${response.status}`);
+    const errorMsg = await extraerMensajeError(response);
+    throw new Error(errorMsg);
   }
 
   return await response.json();
