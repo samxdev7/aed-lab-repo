@@ -18,7 +18,7 @@ public class NotacionPolacaController {
     }
 
     @PostMapping("/convertir")
-    public ResponseEntity<?> convertir(@RequestBody NotacionPolacaPeticionDto peticion) {
+    public ResponseEntity<?> convertir(@jakarta.validation.Valid @RequestBody NotacionPolacaPeticionDto peticion) {
         try {
             NotacionPolacaRespuestaDto respuesta = notacionPolacaServicio.convertir(peticion);
             return new ResponseEntity<>(respuesta, HttpStatusCode.valueOf(200));

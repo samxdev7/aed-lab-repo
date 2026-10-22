@@ -9,6 +9,7 @@ import java.util.Arrays;
 public class ColaCircularServicio {
 
     public static final int MAX = 10;
+    public static final int LONGITUD_MAXIMA_TRABAJO = 15;
 
     private final String[] cola = new String[MAX];
     private int frente = -1;
@@ -114,17 +115,17 @@ public class ColaCircularServicio {
 
     public void validarEstacion(String estacion) {
         if (estacion == null || estacion.trim().isEmpty()) {
-            throw new IllegalArgumentException("El identificador de la estación de trabajo no puede estar vacío.");
+            throw new IllegalArgumentException("El trabajo de impresión no puede estar vacío.");
         }
 
-        String limpia = estacion.trim().toUpperCase();
+        String limpia = estacion.trim().toUpperCase().replaceAll("\\s+", " ");
 
-        if (limpia.length() < 1 || limpia.length() > 4) {
-            throw new IllegalArgumentException("La estación de trabajo debe contener entre 1 y 4 letras.");
+        if (limpia.length() < 1 || limpia.length() > LONGITUD_MAXIMA_TRABAJO) {
+            throw new IllegalArgumentException("El trabajo de impresión debe contener entre 1 y " + LONGITUD_MAXIMA_TRABAJO + " caracteres.");
         }
 
-        if (!limpia.matches("^[A-Z]+$")) {
-            throw new IllegalArgumentException("La estación de trabajo solo puede contener letras (A-Z). No se permiten números ni caracteres especiales.");
+        if (!limpia.matches("^[A-Z0-9 _.-]+$")) {
+            throw new IllegalArgumentException("El trabajo de impresión solo puede contener letras, números, espacios y guiones (- / _).");
         }
     }
 

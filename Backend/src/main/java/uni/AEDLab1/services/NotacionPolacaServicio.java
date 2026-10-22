@@ -131,63 +131,178 @@ public class NotacionPolacaServicio {
         };
     }
 
+    static class TokenNode {
+        String text;
+        String type; // "operand", "operator", "paren"
+        TokenNode prev;
+        TokenNode next;
+
+        TokenNode(String text, String type) {
+            this.text = text;
+            this.type = type;
+        }
+    }
+
+    static class TokenList {
+        TokenNode head;
+        TokenNode tail;
+
+        TokenList(String expr) {
+            for (int i = 0; i < expr.length(); i++) {
+                String c = expr.substring(i, i + 1);
+                String type = "operand";
+                if ("+-*/^".contains(c)) type = "operator";
+                if ("()".contains(c)) type = "paren";
+                append(new TokenNode(c, type));
+            }
+        }
+
+        void append(TokenNode node) {
+            if (head == null) {
+                head = node;
+                tail = node;
+            } else {
+                tail.next = node;
+                node.prev = tail;
+                tail = node;
+            }
+        }
+
+        void replaceRange(TokenNode startNode, TokenNode endNode, TokenNode newNode) {
+            TokenNode before = startNode.prev;
+            TokenNode after = endNode.next;
+
+            if (before != null) {
+                before.next = newNode;
+                newNode.prev = before;
+            } else {
+                head = newNode;
+                newNode.prev = null;
+            }
+
+            if (after != null) {
+                after.prev = newNode;
+                newNode.next = after;
+            } else {
+                tail = newNode;
+                newNode.next = null;
+            }
+        }
+
+        String format() {
+            StringBuilder sb = new StringBuilder();
+            TokenNode curr = head;
+            while (curr != null) {
+                if (sb.length() == 0) {
+                    sb.append(curr.text);
+                } else {
+                    char lastChar = sb.charAt(sb.length() - 1);
+                    if (curr.text.equals(")") || lastChar == '(') {
+                        sb.append(curr.text);
+                    } else {
+                        sb.append(" ").append(curr.text);
+                    }
+                }
+                curr = curr.next;
+            }
+            return sb.toString();
+        }
+    }
+
+    record ValItem(TokenNode startNode, TokenNode endNode, String converted) {}
+    record OpItem(String op, TokenNode tokenNode) {}
+
     private String convertirAPostfija(
         String ei,
         List<FotogramaNotacionPolacaDto> fotogramas,
         List<PasoNotacionPolacaDto> pasos
     ) {
+        TokenList tokenList = new TokenList(ei);
         List<String> pila = new ArrayList<>();
-        Deque<String> pilaValores = new ArrayDeque<>();
+        Deque<OpItem> pilaOpItems = new ArrayDeque<>();
+        Deque<ValItem> pilaValores = new ArrayDeque<>();
         int numeroPaso = 0;
         StringBuilder epos = new StringBuilder();
 
-        for (int i = 0; i < ei.length(); i++) {
-            String simb = ei.substring(i, i + 1);
+        TokenNode currToken = tokenList.head;
+        while (currToken != null) {
+            TokenNode nextToken = currToken.next;
+            String simb = currToken.text;
 
             if (simb.equals("(")) {
                 pila.add(simb);
+                pilaOpItems.push(new OpItem(simb, currToken));
                 fotogramas.add(new FotogramaNotacionPolacaDto("push", simb, new ArrayList<>(pila), null));
             } else if (simb.equals(")")) {
                 while (!pila.isEmpty() && !pila.get(pila.size() - 1).equals("(")) {
                     String extraido = pila.remove(pila.size() - 1);
+                    pilaOpItems.pop();
                     fotogramas.add(new FotogramaNotacionPolacaDto("pop", extraido, new ArrayList<>(pila), null));
                     epos.append(extraido);
 
-                    String der = pilaValores.isEmpty() ? "" : pilaValores.pop();
-                    String izq = pilaValores.isEmpty() ? "" : pilaValores.pop();
-                    String convertido = izq + der + extraido;
-                    pilaValores.push(convertido);
+                    ValItem der = pilaValores.isEmpty() ? new ValItem(null, null, "") : pilaValores.pop();
+                    ValItem izq = pilaValores.isEmpty() ? new ValItem(null, null, "") : pilaValores.pop();
+                    String convertido = izq.converted() + der.converted() + extraido;
+
+                    TokenNode startNode = izq.startNode() != null ? izq.startNode() : der.startNode();
+                    TokenNode endNode = der.endNode() != null ? der.endNode() : izq.endNode();
+
+                    boolean consumeParens = (pila.isEmpty() || pila.get(pila.size() - 1).equals("("));
+                    if (consumeParens && startNode != null && endNode != null &&
+                        startNode.prev != null && startNode.prev.text.equals("(") &&
+                        endNode.next != null && endNode.next.text.equals(")")) {
+                        startNode = startNode.prev;
+                        endNode = endNode.next;
+                    }
+
+                    TokenNode newNode = new TokenNode(convertido, "operand");
+                    if (startNode != null && endNode != null) {
+                        tokenList.replaceRange(startNode, endNode, newNode);
+                    }
+                    pilaValores.push(new ValItem(newNode, newNode, convertido));
 
                     numeroPaso++;
+                    String expresionCompleta = tokenList.format();
                     PasoNotacionPolacaDto paso = new PasoNotacionPolacaDto(
-                        numeroPaso, extraido, izq + " " + extraido + " " + der, convertido
+                        numeroPaso, extraido, izq.converted() + " " + extraido + " " + der.converted(), convertido, expresionCompleta
                     );
                     pasos.add(paso);
                     fotogramas.add(new FotogramaNotacionPolacaDto("step", extraido, new ArrayList<>(pila), paso));
                 }
                 if (!pila.isEmpty() && pila.get(pila.size() - 1).equals("(")) {
                     pila.remove(pila.size() - 1);
+                    if (!pilaOpItems.isEmpty()) pilaOpItems.pop();
                     fotogramas.add(new FotogramaNotacionPolacaDto("pop", "(", new ArrayList<>(pila), null));
                 }
-            } else if (simb.matches("[A-Z]")) {
+            } else if (currToken.type.equals("operand")) {
                 epos.append(simb);
-                pilaValores.push(simb);
+                pilaValores.push(new ValItem(currToken, currToken, simb));
             } else {
                 // Es un operador
                 if (!pila.isEmpty()) {
                     while (!pila.isEmpty() && prioridad(simb) <= prioridad(pila.get(pila.size() - 1))) {
                         String extraido = pila.remove(pila.size() - 1);
+                        pilaOpItems.pop();
                         fotogramas.add(new FotogramaNotacionPolacaDto("pop", extraido, new ArrayList<>(pila), null));
                         epos.append(extraido);
 
-                        String der = pilaValores.isEmpty() ? "" : pilaValores.pop();
-                        String izq = pilaValores.isEmpty() ? "" : pilaValores.pop();
-                        String convertido = izq + der + extraido;
-                        pilaValores.push(convertido);
+                        ValItem der = pilaValores.isEmpty() ? new ValItem(null, null, "") : pilaValores.pop();
+                        ValItem izq = pilaValores.isEmpty() ? new ValItem(null, null, "") : pilaValores.pop();
+                        String convertido = izq.converted() + der.converted() + extraido;
+
+                        TokenNode startNode = izq.startNode() != null ? izq.startNode() : der.startNode();
+                        TokenNode endNode = der.endNode() != null ? der.endNode() : izq.endNode();
+
+                        TokenNode newNode = new TokenNode(convertido, "operand");
+                        if (startNode != null && endNode != null) {
+                            tokenList.replaceRange(startNode, endNode, newNode);
+                        }
+                        pilaValores.push(new ValItem(newNode, newNode, convertido));
 
                         numeroPaso++;
+                        String expresionCompleta = tokenList.format();
                         PasoNotacionPolacaDto paso = new PasoNotacionPolacaDto(
-                            numeroPaso, extraido, izq + " " + extraido + " " + der, convertido
+                            numeroPaso, extraido, izq.converted() + " " + extraido + " " + der.converted(), convertido, expresionCompleta
                         );
                         pasos.add(paso);
                         fotogramas.add(new FotogramaNotacionPolacaDto("step", extraido, new ArrayList<>(pila), paso));
@@ -196,24 +311,37 @@ public class NotacionPolacaServicio {
                     }
                 }
                 pila.add(simb);
+                pilaOpItems.push(new OpItem(simb, currToken));
                 fotogramas.add(new FotogramaNotacionPolacaDto("push", simb, new ArrayList<>(pila), null));
             }
+
+            currToken = nextToken;
         }
 
         while (!pila.isEmpty()) {
             String extraido = pila.remove(pila.size() - 1);
+            if (!pilaOpItems.isEmpty()) pilaOpItems.pop();
             fotogramas.add(new FotogramaNotacionPolacaDto("pop", extraido, new ArrayList<>(pila), null));
             if (!extraido.equals("(") && !extraido.equals(")")) {
                 epos.append(extraido);
 
-                String der = pilaValores.isEmpty() ? "" : pilaValores.pop();
-                String izq = pilaValores.isEmpty() ? "" : pilaValores.pop();
-                String convertido = izq + der + extraido;
-                pilaValores.push(convertido);
+                ValItem der = pilaValores.isEmpty() ? new ValItem(null, null, "") : pilaValores.pop();
+                ValItem izq = pilaValores.isEmpty() ? new ValItem(null, null, "") : pilaValores.pop();
+                String convertido = izq.converted() + der.converted() + extraido;
+
+                TokenNode startNode = izq.startNode() != null ? izq.startNode() : der.startNode();
+                TokenNode endNode = der.endNode() != null ? der.endNode() : izq.endNode();
+
+                TokenNode newNode = new TokenNode(convertido, "operand");
+                if (startNode != null && endNode != null) {
+                    tokenList.replaceRange(startNode, endNode, newNode);
+                }
+                pilaValores.push(new ValItem(newNode, newNode, convertido));
 
                 numeroPaso++;
+                String expresionCompleta = tokenList.format();
                 PasoNotacionPolacaDto paso = new PasoNotacionPolacaDto(
-                    numeroPaso, extraido, izq + " " + extraido + " " + der, convertido
+                    numeroPaso, extraido, izq.converted() + " " + extraido + " " + der.converted(), convertido, expresionCompleta
                 );
                 pasos.add(paso);
                 fotogramas.add(new FotogramaNotacionPolacaDto("step", extraido, new ArrayList<>(pila), paso));
@@ -228,58 +356,92 @@ public class NotacionPolacaServicio {
         List<FotogramaNotacionPolacaDto> fotogramas,
         List<PasoNotacionPolacaDto> pasos
     ) {
+        TokenList tokenList = new TokenList(ei);
         List<String> pila = new ArrayList<>();
-        Deque<String> pilaValores = new ArrayDeque<>();
+        Deque<OpItem> pilaOpItems = new ArrayDeque<>();
+        Deque<ValItem> pilaValores = new ArrayDeque<>();
         int numeroPaso = 0;
         StringBuilder epre = new StringBuilder();
 
-        for (int i = ei.length() - 1; i >= 0; i--) {
-            String simb = ei.substring(i, i + 1);
+        TokenNode currToken = tokenList.tail;
+        while (currToken != null) {
+            TokenNode prevToken = currToken.prev;
+            String simb = currToken.text;
 
             if (simb.equals(")")) {
                 pila.add(simb);
+                pilaOpItems.push(new OpItem(simb, currToken));
                 fotogramas.add(new FotogramaNotacionPolacaDto("push", simb, new ArrayList<>(pila), null));
             } else if (simb.equals("(")) {
                 while (!pila.isEmpty() && !pila.get(pila.size() - 1).equals(")")) {
                     String extraido = pila.remove(pila.size() - 1);
+                    pilaOpItems.pop();
                     fotogramas.add(new FotogramaNotacionPolacaDto("pop", extraido, new ArrayList<>(pila), null));
                     epre.append(extraido);
 
-                    String izq = pilaValores.isEmpty() ? "" : pilaValores.pop();
-                    String der = pilaValores.isEmpty() ? "" : pilaValores.pop();
-                    String convertido = extraido + izq + der;
-                    pilaValores.push(convertido);
+                    ValItem izq = pilaValores.isEmpty() ? new ValItem(null, null, "") : pilaValores.pop();
+                    ValItem der = pilaValores.isEmpty() ? new ValItem(null, null, "") : pilaValores.pop();
+                    String convertido = extraido + izq.converted() + der.converted();
+
+                    TokenNode startNode = izq.startNode() != null ? izq.startNode() : der.startNode();
+                    TokenNode endNode = der.endNode() != null ? der.endNode() : izq.endNode();
+
+                    boolean consumeParens = (pila.isEmpty() || pila.get(pila.size() - 1).equals(")"));
+                    if (consumeParens && startNode != null && endNode != null &&
+                        startNode.prev != null && startNode.prev.text.equals("(") &&
+                        endNode.next != null && endNode.next.text.equals(")")) {
+                        startNode = startNode.prev;
+                        endNode = endNode.next;
+                    }
+
+                    TokenNode newNode = new TokenNode(convertido, "operand");
+                    if (startNode != null && endNode != null) {
+                        tokenList.replaceRange(startNode, endNode, newNode);
+                    }
+                    pilaValores.push(new ValItem(newNode, newNode, convertido));
 
                     numeroPaso++;
+                    String expresionCompleta = tokenList.format();
                     PasoNotacionPolacaDto paso = new PasoNotacionPolacaDto(
-                        numeroPaso, extraido, izq + " " + extraido + " " + der, convertido
+                        numeroPaso, extraido, izq.converted() + " " + extraido + " " + der.converted(), convertido, expresionCompleta
                     );
                     pasos.add(paso);
                     fotogramas.add(new FotogramaNotacionPolacaDto("step", extraido, new ArrayList<>(pila), paso));
                 }
                 if (!pila.isEmpty() && pila.get(pila.size() - 1).equals(")")) {
                     pila.remove(pila.size() - 1);
+                    if (!pilaOpItems.isEmpty()) pilaOpItems.pop();
                     fotogramas.add(new FotogramaNotacionPolacaDto("pop", ")", new ArrayList<>(pila), null));
                 }
-            } else if (simb.matches("[A-Z]")) {
+            } else if (currToken.type.equals("operand")) {
                 epre.append(simb);
-                pilaValores.push(simb);
+                pilaValores.push(new ValItem(currToken, currToken, simb));
             } else {
                 // Es un operador
                 if (!pila.isEmpty()) {
                     while (!pila.isEmpty() && prioridad(simb) < prioridad(pila.get(pila.size() - 1))) {
                         String extraido = pila.remove(pila.size() - 1);
+                        pilaOpItems.pop();
                         fotogramas.add(new FotogramaNotacionPolacaDto("pop", extraido, new ArrayList<>(pila), null));
                         epre.append(extraido);
 
-                        String izq = pilaValores.isEmpty() ? "" : pilaValores.pop();
-                        String der = pilaValores.isEmpty() ? "" : pilaValores.pop();
-                        String convertido = extraido + izq + der;
-                        pilaValores.push(convertido);
+                        ValItem izq = pilaValores.isEmpty() ? new ValItem(null, null, "") : pilaValores.pop();
+                        ValItem der = pilaValores.isEmpty() ? new ValItem(null, null, "") : pilaValores.pop();
+                        String convertido = extraido + izq.converted() + der.converted();
+
+                        TokenNode startNode = izq.startNode() != null ? izq.startNode() : der.startNode();
+                        TokenNode endNode = der.endNode() != null ? der.endNode() : izq.endNode();
+
+                        TokenNode newNode = new TokenNode(convertido, "operand");
+                        if (startNode != null && endNode != null) {
+                            tokenList.replaceRange(startNode, endNode, newNode);
+                        }
+                        pilaValores.push(new ValItem(newNode, newNode, convertido));
 
                         numeroPaso++;
+                        String expresionCompleta = tokenList.format();
                         PasoNotacionPolacaDto paso = new PasoNotacionPolacaDto(
-                            numeroPaso, extraido, izq + " " + extraido + " " + der, convertido
+                            numeroPaso, extraido, izq.converted() + " " + extraido + " " + der.converted(), convertido, expresionCompleta
                         );
                         pasos.add(paso);
                         fotogramas.add(new FotogramaNotacionPolacaDto("step", extraido, new ArrayList<>(pila), paso));
@@ -288,24 +450,37 @@ public class NotacionPolacaServicio {
                     }
                 }
                 pila.add(simb);
+                pilaOpItems.push(new OpItem(simb, currToken));
                 fotogramas.add(new FotogramaNotacionPolacaDto("push", simb, new ArrayList<>(pila), null));
             }
+
+            currToken = prevToken;
         }
 
         while (!pila.isEmpty()) {
             String extraido = pila.remove(pila.size() - 1);
+            if (!pilaOpItems.isEmpty()) pilaOpItems.pop();
             fotogramas.add(new FotogramaNotacionPolacaDto("pop", extraido, new ArrayList<>(pila), null));
             if (!extraido.equals("(") && !extraido.equals(")")) {
                 epre.append(extraido);
 
-                String izq = pilaValores.isEmpty() ? "" : pilaValores.pop();
-                String der = pilaValores.isEmpty() ? "" : pilaValores.pop();
-                String convertido = extraido + izq + der;
-                pilaValores.push(convertido);
+                ValItem izq = pilaValores.isEmpty() ? new ValItem(null, null, "") : pilaValores.pop();
+                ValItem der = pilaValores.isEmpty() ? new ValItem(null, null, "") : pilaValores.pop();
+                String convertido = extraido + izq.converted() + der.converted();
+
+                TokenNode startNode = izq.startNode() != null ? izq.startNode() : der.startNode();
+                TokenNode endNode = der.endNode() != null ? der.endNode() : izq.endNode();
+
+                TokenNode newNode = new TokenNode(convertido, "operand");
+                if (startNode != null && endNode != null) {
+                    tokenList.replaceRange(startNode, endNode, newNode);
+                }
+                pilaValores.push(new ValItem(newNode, newNode, convertido));
 
                 numeroPaso++;
+                String expresionCompleta = tokenList.format();
                 PasoNotacionPolacaDto paso = new PasoNotacionPolacaDto(
-                    numeroPaso, extraido, izq + " " + extraido + " " + der, convertido
+                    numeroPaso, extraido, izq.converted() + " " + extraido + " " + der.converted(), convertido, expresionCompleta
                 );
                 pasos.add(paso);
                 fotogramas.add(new FotogramaNotacionPolacaDto("step", extraido, new ArrayList<>(pila), paso));

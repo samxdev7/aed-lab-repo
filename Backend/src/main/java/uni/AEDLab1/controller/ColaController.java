@@ -24,7 +24,7 @@ public class ColaController {
     }
 
     @PostMapping("/encolar")
-    public ColaEstadoDto encolar(@RequestBody ColaPeticionDto peticion) {
+    public ColaEstadoDto encolar(@jakarta.validation.Valid @RequestBody ColaPeticionDto peticion) {
         return colaServicio.encolar(peticion.persona());
     }
 

@@ -5,6 +5,7 @@ export interface PasoNotacionPolaca {
   operador: string;
   subExpresion: string;
   subExpresionConvertida: string;
+  expresionCompleta?: string;
 }
 
 export interface FotogramaNotacionPolaca {
@@ -34,8 +35,19 @@ export const convertirNotacionPolaca = async (
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(errorText || `Error HTTP: ${response.status}`);
+    let errorMsg = `Error HTTP: ${response.status}`;
+    try {
+      const errorJson = await response.json();
+      if (errorJson && errorJson.message) {
+        errorMsg = errorJson.message;
+      }
+    } catch {
+      try {
+        const text = await response.text();
+        if (text) errorMsg = text;
+      } catch { /* ignore */ }
+    }
+    throw new Error(errorMsg);
   }
 
   return await response.json();

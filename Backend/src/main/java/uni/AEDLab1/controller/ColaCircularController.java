@@ -23,30 +23,17 @@ public class ColaCircularController {
     }
 
     @PostMapping("/encolar")
-    public ResponseEntity<?> encolar(@RequestBody ColaCircularPeticionDto peticion) {
-        try {
-            if (peticion == null) {
-                return new ResponseEntity<>("Error: Cuerpo de la petición no proporcionado.", HttpStatusCode.valueOf(400));
-            }
-            ColaCircularEstadoDto estado = colaCircularServicio.encolar(peticion.estacion());
-            return new ResponseEntity<>(estado, HttpStatusCode.valueOf(200));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return new ResponseEntity<>(e.getMessage(), HttpStatusCode.valueOf(400));
-        } catch (Exception e) {
-            return new ResponseEntity<>("Error interno: " + e.getMessage(), HttpStatusCode.valueOf(500));
+    public ResponseEntity<?> encolar(@jakarta.validation.Valid @RequestBody ColaCircularPeticionDto peticion) {
+        if (peticion == null) {
+            return ResponseEntity.badRequest().body(java.util.Map.of("message", "Error: Cuerpo de la petición no proporcionado."));
         }
+        ColaCircularEstadoDto estado = colaCircularServicio.encolar(peticion.estacion());
+        return ResponseEntity.ok(estado);
     }
 
     @DeleteMapping("/desencolar")
-    public ResponseEntity<?> desencolar() {
-        try {
-            ColaCircularEstadoDto estado = colaCircularServicio.desencolar();
-            return new ResponseEntity<>(estado, HttpStatusCode.valueOf(200));
-        } catch (IllegalStateException e) {
-            return new ResponseEntity<>(e.getMessage(), HttpStatusCode.valueOf(400));
-        } catch (Exception e) {
-            return new ResponseEntity<>("Error interno: " + e.getMessage(), HttpStatusCode.valueOf(500));
-        }
+    public ResponseEntity<ColaCircularEstadoDto> desencolar() {
+        return ResponseEntity.ok(colaCircularServicio.desencolar());
     }
 
     @PostMapping("/reiniciar")
