@@ -8,14 +8,18 @@ import java.util.Arrays;
 @Service
 public class ColaServicio {
 
-    public static final int MAX = 8;
+    public static final int TAMANO_MAXIMO_PERMITIDO = 100;
     public static final int LONGITUD_MAXIMA_NOMBRE = 12;
 
-    private final String[] cola = new String[MAX];
-    private int frente = -1;     // Frente y Final se inicializan en -1
+    private int max = 0;                    // Lo define el usuario con definirTamano
+    private String[] cola = new String[0];
+    private int frente = -1;                // Frente y Final se inicializan en -1
     private int finalCola = -1;
 
     public synchronized ColaEstadoDto obtenerEstado() {
+        if (max == 0) {
+            return crearEstado("Ingrese el tamaño de la cola para comenzar.", "info", null, null);
+        }
         if (frente == -1) {
             return crearEstado("Cola vacía (Frente = -1, Final = -1). Esperando clientes en el banco.", "info", null, null);
         }
@@ -24,12 +28,27 @@ public class ColaServicio {
         return crearEstado(mensaje, "ok", null, null);
     }
 
+    // El usuario ingresa el tamaño (Max): se crea una cola nueva y vacía
+    public synchronized ColaEstadoDto definirTamano(Integer tamanoIngresado) {
+        if (tamanoIngresado == null || tamanoIngresado < 1 || tamanoIngresado > TAMANO_MAXIMO_PERMITIDO) {
+            throw new IllegalArgumentException("El tamaño de la cola debe ser un entero entre 1 y " + TAMANO_MAXIMO_PERMITIDO + ".");
+        }
+        max = tamanoIngresado;
+        cola = new String[max];
+        frente = -1;
+        finalCola = -1;
+        return crearEstado("Cola de " + max + " casillas creada (Frente = -1, Final = -1).", "ok", null, null);
+    }
+
     // Algoritmo Encolar(Cola, Max, Frente, Final, Dato)
     public synchronized ColaEstadoDto encolar(String nombreIngresado) {
+        if (max == 0) {
+            throw new IllegalStateException("Defina primero el tamaño de la cola.");
+        }
         String persona = validarNombre(nombreIngresado);
 
         // 1. Verifica que hay espacio libre en la cola
-        if (finalCola < MAX - 1) {
+        if (finalCola < max - 1) {
             finalCola = finalCola + 1;
             cola[finalCola] = persona;
 
@@ -45,7 +64,7 @@ public class ColaServicio {
             );
         } else {
             throw new IllegalStateException(
-                "Desbordamiento – Cola llena: Final llegó a la última casilla (" + (MAX - 1) + ")."
+                "Desbordamiento – Cola llena: Final llegó a la última casilla (" + (max - 1) + ")."
                 + (frente > 0 ? " Las casillas atendidas no se reutilizan en una cola lineal." : "")
             );
         }
@@ -75,6 +94,7 @@ public class ColaServicio {
         }
     }
 
+    // Vacía la cola y conserva el tamaño ya definido
     public synchronized ColaEstadoDto reiniciar() {
         Arrays.fill(cola, null);
         frente = -1;
@@ -85,7 +105,7 @@ public class ColaServicio {
     private ColaEstadoDto crearEstado(String mensaje, String tipoMensaje, String elementoAfectado, Integer indiceAfectado) {
         int cantidad = frente == -1 ? 0 : finalCola - frente + 1;
         return new ColaEstadoDto(
-            Arrays.copyOf(cola, MAX), frente, finalCola, cantidad, mensaje, tipoMensaje, elementoAfectado, indiceAfectado
+            cola.clone(), frente, finalCola, cantidad, mensaje, tipoMensaje, elementoAfectado, indiceAfectado
         );
     }
 

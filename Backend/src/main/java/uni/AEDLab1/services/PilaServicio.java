@@ -8,15 +8,16 @@ import java.util.Arrays;
 @Service
 public class PilaServicio {
 
-    private static final int MAX = 10;
+    private static final int TAMANO_MAXIMO = 100;
     private static final int MAX_CARACTERES_NOMBRE = 30;
 
-    private final String[] pila = new String[MAX];
+    private String[] pila = new String[0];
+    private int max = 0;   // Se define con definirTamano (lo ingresa el usuario)
     private int tope = -1;
 
     // Pilallena(Pila, Tope, Max, Band): Band = verdadero si Tope = Max-1
     private boolean pilaLlena() {
-        return tope == MAX - 1;
+        return tope == max - 1;
     }
 
     // Pilavacia(Pila, Tope, Band): Band = verdadero si Tope = -1
@@ -30,7 +31,7 @@ public class PilaServicio {
 
         boolean band = pilaLlena();
         if (band) {
-            throw new IllegalStateException("Desbordamiento - Pila llena: no se pueden apilar más centros comerciales (Max = " + MAX + ").");
+            throw new IllegalStateException("Desbordamiento - Pila llena: no se pueden apilar más centros comerciales (Max = " + max + ").");
         }
         tope = tope + 1;
         pila[tope] = dato;
@@ -50,17 +51,25 @@ public class PilaServicio {
         return construirEstado("'" + dato + "' desapilado. Tope = " + tope + ".", "info", dato);
     }
 
-    public synchronized PilaEstadoDto obtenerEstado() {
-        if (pilaVacia()) {
-            return construirEstado("Pila vacía (Tope = -1). Ingrese un centro comercial para apilar.", "info", null);
+    // Crea una pila nueva y vacía de nuevoMax casillas (también sirve para reiniciarla)
+    public synchronized PilaEstadoDto definirTamano(int nuevoMax) {
+        if (nuevoMax < 1 || nuevoMax > TAMANO_MAXIMO) {
+            throw new IllegalArgumentException("El tamaño de la pila debe ser un entero entre 1 y " + TAMANO_MAXIMO + ".");
         }
-        return construirEstado("Tope = " + tope + " (" + pila[tope] + "). Ocupación: " + (tope + 1) + "/" + MAX + ".", "ok", null);
+        max = nuevoMax;
+        pila = new String[max];
+        tope = -1;
+        return construirEstado("Pila creada con Max = " + max + " (Tope = -1).", "info", null);
     }
 
-    public synchronized PilaEstadoDto reiniciar() {
-        Arrays.fill(pila, null);
-        tope = -1;
-        return construirEstado("Pila reiniciada: vacía (Tope = -1).", "info", null);
+    public synchronized PilaEstadoDto obtenerEstado() {
+        if (max == 0) {
+            return construirEstado("Defina el tamaño de la pila (Max) para comenzar.", "info", null);
+        }
+        if (pilaVacia()) {
+            return construirEstado("Pila vacía (Tope = -1). Ocupación: 0/" + max + ".", "info", null);
+        }
+        return construirEstado("Tope = " + tope + " (" + pila[tope] + "). Ocupación: " + (tope + 1) + "/" + max + ".", "ok", null);
     }
 
     private String validarYLimpiarNombre(String centroComercial) {
@@ -79,6 +88,6 @@ public class PilaServicio {
 
     // Solo se envían las casillas ocupadas (0..Tope); lo que hay sobre el tope no forma parte de la pila
     private PilaEstadoDto construirEstado(String mensaje, String tipoMensaje, String elementoAfectado) {
-        return new PilaEstadoDto(Arrays.copyOf(pila, tope + 1), tope, MAX, mensaje, tipoMensaje, elementoAfectado);
+        return new PilaEstadoDto(Arrays.copyOf(pila, tope + 1), tope, max, mensaje, tipoMensaje, elementoAfectado);
     }
 }
