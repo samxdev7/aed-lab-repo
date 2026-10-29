@@ -6,6 +6,7 @@ import { StackPanel } from './StackPanel';
 import { CircularQueuePanel } from './CircularQueuePanel';
 import { QueuePanel } from './QueuePanel';
 import { PolishNotationPanel } from './PolishNotationPanel';
+import { BinaryTreePanel } from './BinaryTreePanel';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<
@@ -15,6 +16,7 @@ export default function App() {
     | 'colas-circulares'
     | 'colas'
     | 'notacion-polaca'
+    | 'arboles'
   >('presentation');
 
   return (
@@ -31,6 +33,7 @@ export default function App() {
             onSelectColasCirculares={() => setCurrentScreen('colas-circulares')}
             onSelectColas={() => setCurrentScreen('colas')}
             onSelectNotacionPolaca={() => setCurrentScreen('notacion-polaca')}
+            onSelectArboles={() => setCurrentScreen('arboles')}
           />
         )}
 
@@ -48,6 +51,10 @@ export default function App() {
 
         {currentScreen === 'notacion-polaca' && (
           <PolishNotationPanel onBack={() => setCurrentScreen('menu')} />
+        )}
+
+        {currentScreen === 'arboles' && (
+          <BinaryTreePanel onBack={() => setCurrentScreen('menu')} />
         )}
       </main>
     </NotificationProvider>
