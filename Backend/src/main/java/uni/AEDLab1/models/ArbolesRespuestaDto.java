@@ -1,11 +1,10 @@
 package uni.AEDLab1.models;
 
-public record NotacionPolacaRespuestaDto(
-    String expresionOriginal,
-    String expresionResultado,
-    String modalidad,
-    int totalPasos,
-    PasoNotacionPolacaDto[] pasos,
-    FotogramaNotacionPolacaDto[] fotogramas
+public record ArbolesRespuestaDto(
+    NodoArbolDto arbol,
+    DialogoExtensionDto dialogo,
+    String tipoRecorrido,
+    int[] nodosResaltados,
+    boolean animando,
+    String mensajeEstado
 ) {}
-
