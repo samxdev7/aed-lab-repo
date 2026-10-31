@@ -2,48 +2,23 @@ import React, { useMemo, useState } from 'react';
 import { ArrowLeft, Play, RotateCcw } from 'lucide-react';
 import { useSoundEffects } from './useSoundEffects';
 import { useNotification } from './NotificationContext';
+import {
+  iniciarArbol,
+  responderPregunta,
+  confirmarHijo as apiConfirmarHijo,
+  cancelarHijo as apiCancelarHijo,
+  ejecutarRecorrido,
+  reiniciarArbol as apiReiniciarArbol,
+  type TipoRecorrido,
+  type NodoArbolDTO,
+  type DialogoDTO,
+  type BinaryTreePanelProps,
+  type ArbolesRespuestaDTO,
+} from './services/arbolService';
 
 /* ------------------------------------------------------------------ */
 /*  TIPOS (contrato con el backend)                                    */
 /* ------------------------------------------------------------------ */
-export type LadoHijo = 'izq' | 'der';
-export type TipoRecorrido = 'PreOrden' | 'InOrden' | 'PosOrden';
-
-export interface NodoArbolDTO {
-  id: number;
-  valor: string;
-  izq: NodoArbolDTO | null;
-  der: NodoArbolDTO | null;
-}
-
-/** Pregunta o ingreso que el backend solicita al usuario. */
-export interface DialogoDTO {
-  fase: 'pregunta' | 'ingreso';
-  valorPadre: string;
-  lado: LadoHijo;
-}
-
-export interface BinaryTreePanelProps {
-  onBack: () => void;
-
-  /* Datos que entrega el backend */
-  arbol?: NodoArbolDTO | null;
-  dialogo?: DialogoDTO | null;
-  tipoRecorrido?: TipoRecorrido | null;
-  /** IDs de los nodos ya alcanzados por el recorrido, en orden de visita. El backend la va ampliando paso a paso. */
-  nodosResaltados?: number[];
-  animando?: boolean;
-  mensajeEstado?: string;
-
-  /* Eventos que el backend atiende */
-  onCrearArbol?: (letraRaiz: string) => void;
-  onResponderHijo?: (tieneHijo: boolean) => void;
-  onConfirmarHijo?: (letra: string) => void;
-  onCancelarHijo?: () => void;
-  onRecorrido?: (tipo: TipoRecorrido) => void;
-  onReiniciar?: () => void;
-}
-
 interface PosicionNodo {
   id: number;
   valor: string;
@@ -97,12 +72,12 @@ function calcularPosiciones(raiz: NodoArbolDTO | null): PosicionNodo[] {
 /* ------------------------------------------------------------------ */
 export const BinaryTreePanel: React.FC<BinaryTreePanelProps> = ({
   onBack,
-  arbol = null,
-  dialogo = null,
-  tipoRecorrido = null,
-  nodosResaltados = [],
-  animando = false,
-  mensajeEstado,
+  arbol: propArbol,
+  dialogo: propDialogo,
+  tipoRecorrido: propTipoRecorrido,
+  nodosResaltados: propNodosResaltados,
+  animando: propAnimando,
+  mensajeEstado: propMensajeEstado,
   onCrearArbol,
   onResponderHijo,
   onConfirmarHijo,
@@ -112,6 +87,20 @@ export const BinaryTreePanel: React.FC<BinaryTreePanelProps> = ({
 }) => {
   const { playClickSound, playHoverSound } = useSoundEffects();
   const { showNotification } = useNotification();
+
+  const [arbolState, setArbolState] = useState<NodoArbolDTO | null>(null);
+  const [dialogoState, setDialogoState] = useState<DialogoDTO | null>(null);
+  const [tipoRecorridoState, setTipoRecorridoState] = useState<TipoRecorrido | null>(null);
+  const [nodosResaltadosState, setNodosResaltadosState] = useState<number[]>([]);
+  const [animandoState, setAnimandoState] = useState<boolean>(false);
+  const [mensajeEstadoState, setMensajeEstadoState] = useState<string | undefined>(undefined);
+
+  const arbol: NodoArbolDTO | null = propArbol !== undefined ? propArbol : arbolState;
+  const dialogo: DialogoDTO | null = propDialogo !== undefined ? propDialogo : dialogoState;
+  const tipoRecorrido: TipoRecorrido | null = propTipoRecorrido !== undefined ? propTipoRecorrido : tipoRecorridoState;
+  const nodosResaltados: number[] = propNodosResaltados !== undefined ? propNodosResaltados : nodosResaltadosState;
+  const animando: boolean = propAnimando !== undefined ? propAnimando : animandoState;
+  const mensajeEstado: string | undefined = propMensajeEstado !== undefined ? propMensajeEstado : mensajeEstadoState;
 
   const [letraRaiz, setLetraRaiz] = useState<string>('');
   const [letraDialogo, setLetraDialogo] = useState<string>('');
@@ -128,6 +117,29 @@ export const BinaryTreePanel: React.FC<BinaryTreePanelProps> = ({
     [nodosResaltados]
   );
 
+  const aplicarRespuesta = (res: ArbolesRespuestaDTO) => {
+    setArbolState(res.arbol);
+    setDialogoState(res.dialogo);
+    if (res.tipoRecorrido) setTipoRecorridoState(res.tipoRecorrido);
+    if (res.mensajeEstado) setMensajeEstadoState(res.mensajeEstado);
+  };
+
+  const animarRecorrido = (ids: number[]) => {
+    setAnimandoState(true);
+    setNodosResaltadosState([]);
+    let step = 0;
+    const interval = setInterval(() => {
+      if (step < ids.length) {
+        setNodosResaltadosState(ids.slice(0, step + 1));
+        playClickSound();
+        step++;
+      } else {
+        clearInterval(interval);
+        setAnimandoState(false);
+      }
+    }, 550);
+  };
+
   /* ---------- Entrada: solo letras A-Z mayúsculas ---------- */
   const filtrarEntrada = (texto: string, aplicar: (valor: string) => void): void => {
     if (texto === '' || REGEX_MAYUSCULA.test(texto)) {
@@ -137,31 +149,115 @@ export const BinaryTreePanel: React.FC<BinaryTreePanelProps> = ({
     }
   };
 
-  const crearArbol = (): void => {
+  const crearArbol = async (): Promise<void> => {
     if (!REGEX_MAYUSCULA.test(letraRaiz)) {
       showNotification('error', 'Raíz inválida', 'Ingrese una letra mayúscula (A-Z).');
       return;
     }
     playClickSound();
-    onCrearArbol?.(letraRaiz);
+    if (onCrearArbol) {
+      onCrearArbol(letraRaiz);
+      return;
+    }
+    try {
+      const res = await iniciarArbol(letraRaiz);
+      aplicarRespuesta(res);
+      setNodosResaltadosState([]);
+      setTipoRecorridoState(null);
+      setLetraRaiz('');
+      showNotification('success', 'Árbol iniciado', res.mensajeEstado);
+    } catch (err: any) {
+      showNotification('error', 'Error al iniciar árbol', err.message || 'Error del servidor');
+    }
   };
 
-  const confirmarHijo = (): void => {
+  const handleResponderHijo = async (tieneHijo: boolean): Promise<void> => {
+    playClickSound();
+    if (onResponderHijo) {
+      onResponderHijo(tieneHijo);
+      return;
+    }
+    try {
+      const res = await responderPregunta(tieneHijo);
+      aplicarRespuesta(res);
+    } catch (err: any) {
+      showNotification('error', 'Error', err.message || 'Error del servidor');
+    }
+  };
+
+  const confirmarHijo = async (): Promise<void> => {
     if (!REGEX_MAYUSCULA.test(letraDialogo)) {
       showNotification('error', 'Nodo inválido', 'Ingrese una letra mayúscula (A-Z).');
       return;
     }
     playClickSound();
-    onConfirmarHijo?.(letraDialogo);
-    setLetraDialogo('');
+    if (onConfirmarHijo) {
+      onConfirmarHijo(letraDialogo);
+      setLetraDialogo('');
+      return;
+    }
+    try {
+      const res = await apiConfirmarHijo(letraDialogo);
+      aplicarRespuesta(res);
+      setLetraDialogo('');
+      showNotification('success', 'Nodo insertado', res.mensajeEstado);
+    } catch (err: any) {
+      showNotification('error', 'Error', err.message || 'Error del servidor');
+    }
   };
 
-  const reiniciar = (): void => {
+  const handleCancelarHijo = async (): Promise<void> => {
+    playClickSound();
+    setLetraDialogo('');
+    if (onCancelarHijo) {
+      onCancelarHijo();
+      return;
+    }
+    try {
+      const res = await apiCancelarHijo();
+      aplicarRespuesta(res);
+    } catch (err: any) {
+      showNotification('error', 'Error', err.message || 'Error del servidor');
+    }
+  };
+
+  const handleRecorrido = async (tipo: TipoRecorrido): Promise<void> => {
+    playClickSound();
+    if (onRecorrido) {
+      onRecorrido(tipo);
+      return;
+    }
+    try {
+      setTipoRecorridoState(tipo);
+      const res = await ejecutarRecorrido(tipo);
+      aplicarRespuesta(res);
+      if (res.nodosResaltados && res.nodosResaltados.length > 0) {
+        animarRecorrido(res.nodosResaltados);
+      }
+    } catch (err: any) {
+      showNotification('error', 'Error de recorrido', err.message || 'Error del servidor');
+    }
+  };
+
+  const reiniciar = async (): Promise<void> => {
     playClickSound();
     setLetraRaiz('');
     setLetraDialogo('');
-    onReiniciar?.();
+    if (onReiniciar) {
+      onReiniciar();
+      return;
+    }
+    try {
+      const res = await apiReiniciarArbol();
+      aplicarRespuesta(res);
+      setNodosResaltadosState([]);
+      setTipoRecorridoState(null);
+      showNotification('info', 'Árbol reiniciado', res.mensajeEstado);
+    } catch (err: any) {
+      showNotification('error', 'Error al reiniciar', err.message || 'Error del servidor');
+    }
   };
+
 
   /* ---------- Medidas del lienzo ---------- */
   const maxColumna: number = posiciones.reduce((m: number, p: PosicionNodo) => Math.max(m, p.columna), 0);
@@ -255,8 +351,7 @@ export const BinaryTreePanel: React.FC<BinaryTreePanelProps> = ({
             <button
               key={tipo}
               onClick={(): void => {
-                playClickSound();
-                onRecorrido?.(tipo);
+                handleRecorrido(tipo);
               }}
               onMouseEnter={playHoverSound}
               disabled={arbol === null || bloqueado}
@@ -307,7 +402,7 @@ export const BinaryTreePanel: React.FC<BinaryTreePanelProps> = ({
               {posiciones.map((p: PosicionNodo) => {
                 const orden: number | undefined = ordenPorId.get(p.id);
                 const resaltado: boolean = orden !== undefined;
-                const color: ColorResaltado | null = resaltado
+                const color: ColorResaltado | null = orden !== undefined
                   ? PALETA_RESALTADO[(orden - 1) % PALETA_RESALTADO.length]
                   : null;
                 const cx: number = coordX(p);
@@ -418,8 +513,7 @@ export const BinaryTreePanel: React.FC<BinaryTreePanelProps> = ({
                 <div className="flex justify-center gap-2">
                   <button
                     onClick={(): void => {
-                      playClickSound();
-                      onResponderHijo?.(true);
+                      handleResponderHijo(true);
                     }}
                     onMouseEnter={playHoverSound}
                     className={`${claseBotonSuave} w-20 bg-emerald-400/20 border-emerald-300/60 text-emerald-100 enabled:hover:bg-emerald-400/30`}
@@ -428,8 +522,7 @@ export const BinaryTreePanel: React.FC<BinaryTreePanelProps> = ({
                   </button>
                   <button
                     onClick={(): void => {
-                      playClickSound();
-                      onResponderHijo?.(false);
+                      handleResponderHijo(false);
                     }}
                     onMouseEnter={playHoverSound}
                     className={`${claseBotonSuave} w-20 bg-white/[0.04] border-white/20 text-slate-200 enabled:hover:bg-white/10`}
@@ -468,9 +561,7 @@ export const BinaryTreePanel: React.FC<BinaryTreePanelProps> = ({
                   </button>
                   <button
                     onClick={(): void => {
-                      playClickSound();
-                      setLetraDialogo('');
-                      onCancelarHijo?.();
+                      handleCancelarHijo();
                     }}
                     onMouseEnter={playHoverSound}
                     className={`${claseBotonSuave} w-24 bg-white/[0.04] border-white/20 text-slate-200 enabled:hover:bg-white/10`}
