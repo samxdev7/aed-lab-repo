@@ -1,6 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Play, RotateCcw, Network, Check, X } from 'lucide-react';
 import { useSoundEffects } from './useSoundEffects';
+import { useMouseParallax } from './useMouseParallax';
 import { useNotification } from './NotificationContext';
 import {
   iniciarArbol,
@@ -99,6 +100,79 @@ export const BinaryTreePanel: React.FC<BinaryTreePanelProps> = ({
 }) => {
   const { playClickSound, playHoverSound } = useSoundEffects();
   const { showNotification } = useNotification();
+
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const parallax = useMouseParallax(12);
+
+  // Fondo dinámico de nodos/algoritmos (igual al del panel de presentación)
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animationFrameId: number;
+    let width = (canvas.width = window.innerWidth);
+    let height = (canvas.height = window.innerHeight);
+
+    const handleResize = () => {
+      if (!canvas) return;
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    };
+    window.addEventListener('resize', handleResize);
+
+    const numParticles = 45;
+    const particles = Array.from({ length: numParticles }, () => ({
+      x: Math.random() * width,
+      y: Math.random() * height,
+      vx: (Math.random() - 0.5) * 0.4,
+      vy: (Math.random() - 0.5) * 0.4,
+      size: Math.random() * 2 + 1,
+    }));
+
+    const render = () => {
+      ctx.clearRect(0, 0, width, height);
+
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+
+        if (p.x < 0 || p.x > width) p.vx *= -1;
+        if (p.y < 0 || p.y > height) p.vy *= -1;
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(168, 85, 247, 0.4)';
+        ctx.fill();
+
+        for (let j = i + 1; j < particles.length; j++) {
+          const p2 = particles[j];
+          const dx = p.x - p2.x;
+          const dy = p.y - p2.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+
+          if (dist < 130) {
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.strokeStyle = `rgba(99, 102, 241, ${1 - dist / 130})`;
+            ctx.lineWidth = 0.6;
+            ctx.stroke();
+          }
+        }
+      }
+      animationFrameId = requestAnimationFrame(render);
+    };
+
+    render();
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, []);
 
   const [arbolState, setArbolState] = useState<NodoArbolDTO | null>(null);
   const [dialogoState, setDialogoState] = useState<DialogoDTO | null>(null);
@@ -289,17 +363,14 @@ export const BinaryTreePanel: React.FC<BinaryTreePanelProps> = ({
     mensajeEstado ?? textoRecorrido ?? (arbol ? 'Árbol listo • Seleccione un recorrido' : 'Ingrese la letra raíz (A-Z) para comenzar');
 
   return (
-    <div className="fixed inset-0 h-dvh w-full bg-[#03060d] text-white flex flex-col items-center overflow-hidden select-none font-tech-body">
+    <div className="fixed inset-0 h-dvh w-full bg-[#090b16] text-white flex flex-col items-center overflow-hidden select-none font-tech-body">
       <style>
         {`
-          @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Fira+Code:wght@500;600;700&family=Orbitron:wght@700;800;900&display=swap');            
+          @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fira+Code:wght@500;600;700&display=swap');      
           html, body { overflow: hidden; }
           .font-tech-header { font-family: 'Rajdhani', sans-serif; letter-spacing: 0.06em; }
           .font-tech-body { font-family: 'Plus Jakarta Sans', sans-serif; }
           .font-mono-tech { font-family: 'Fira Code', monospace; }
-          .font-titulo { font-family: 'Orbitron', sans-serif; }
-          @keyframes titulo-brillo { 0% { background-position: 0% 50%; } 100% { background-position: 100% 50%; } }
-          .titulo-animado { background-size: 220% auto; animation: titulo-brillo 5s ease-in-out infinite alternate; }
           .lienzo-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
           .lienzo-scroll::-webkit-scrollbar-track { background: rgba(3, 6, 13, 0.6); }
           .lienzo-scroll::-webkit-scrollbar-thumb { background: rgba(52, 211, 153, 0.3); border-radius: 4px; }
@@ -318,22 +389,53 @@ export const BinaryTreePanel: React.FC<BinaryTreePanelProps> = ({
         `}
       </style>
 
-      {/* Destellos de fondo */}
-      <div className="absolute top-[-12%] left-[-10%] w-[45%] h-[45%] bg-emerald-600/12 rounded-full blur-[150px] pointer-events-none z-0" />
-      <div className="absolute bottom-[-12%] right-[-10%] w-[45%] h-[45%] bg-cyan-600/12 rounded-full blur-[150px] pointer-events-none z-0" />
+            {/* Canvas para fondo de red de algoritmos */}
+      <canvas ref={canvasRef} className="absolute inset-0 z-0 pointer-events-none opacity-60" />
+
+      {/* Destellos ambientales neón con parallax */}
+      <div
+        className="absolute -top-32 left-1/2 -translate-x-1/2 w-[700px] h-[350px] bg-indigo-600/15 rounded-full blur-[160px] pointer-events-none z-0"
+        style={{ transform: `translate3d(${parallax.x * 0.5}px, ${parallax.y * 0.5}px, 0)` }}
+      />
+      <div
+        className="absolute -bottom-28 -left-28 w-[500px] h-[500px] bg-purple-700/20 rounded-full blur-[150px] pointer-events-none z-0"
+        style={{ transform: `translate3d(${parallax.x * 0.8}px, ${parallax.y * 0.8}px, 0)` }}
+      />
+      <div
+        className="absolute -bottom-28 -right-28 w-[500px] h-[500px] bg-cyan-600/20 rounded-full blur-[150px] pointer-events-none z-0"
+        style={{ transform: `translate3d(${parallax.x * -0.6}px, ${parallax.y * -0.6}px, 0)` }}
+      />
+
+      {/* Grid de puntos estilizados */}
+      <div
+        className="absolute top-12 left-10 w-32 h-32 opacity-15 pointer-events-none hidden lg:block transition-transform duration-75 z-0"
+        style={{
+          backgroundImage: `radial-gradient(#ffffff 2px, transparent 2px)`,
+          backgroundSize: '14px 14px',
+          transform: `translate3d(${parallax.x * -1}px, ${parallax.y * -1}px, 0)`,
+        }}
+      />
+      <div
+        className="absolute top-12 right-10 w-32 h-32 opacity-15 pointer-events-none hidden lg:block transition-transform duration-75 z-0"
+        style={{
+          backgroundImage: `radial-gradient(#ffffff 2px, transparent 2px)`,
+          backgroundSize: '14px 14px',
+          transform: `translate3d(${parallax.x}px, ${parallax.y}px, 0)`,
+        }}
+      />
 
       {/* ENCABEZADO */}
-      <header className="relative z-10 shrink-0 w-full text-center pt-3 pb-1 space-y-1">
-        <h1
-          className="font-titulo titulo-animado uppercase text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 via-white to-cyan-300 drop-shadow-[0_0_24px_rgba(52,211,153,0.5)] leading-tight"
-          style={{ fontSize: 'clamp(1.6rem, 5.2vh, 2.6rem)', letterSpacing: '0.14em', fontWeight: 800 }}
+      <header
+        className="relative z-10 shrink-0 w-full text-center pt-3 pb-1 space-y-1 transition-transform duration-75"
+        style={{ transform: `translate3d(${parallax.x * 0.3}px, ${parallax.y * 0.3}px, 0)` }}
+      >
+        <
         >
-          Árbol Binario Simple
-        </h1>
+        </>
         <div className="flex items-center justify-center gap-2">
           <span className="h-px w-12 sm:w-20 bg-gradient-to-r from-transparent to-emerald-400/70" />
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 shadow-[0_0_8px_#34d399]" />
-          <span className="text-[11px] font-tech-header font-bold uppercase tracking-widest text-slate-300">
+          <span className="font-tech-body tracking-wide font-bold text-slate-200 uppercase text-xs sm:text-sm">
             Construcción Gráfica Paso a Paso
           </span>
           <span className="w-1.5 h-1.5 rounded-full bg-cyan-300 shadow-[0_0_8px_#22d3ee]" />
@@ -402,7 +504,7 @@ export const BinaryTreePanel: React.FC<BinaryTreePanelProps> = ({
                         void handleResponderHijo(true);
                       }}
                       onMouseEnter={playHoverSound}
-                      className="h-9 px-3.5 rounded-xl font-tech-header font-bold text-xs tracking-wider inline-flex items-center justify-center gap-1 text-[#03060d] bg-gradient-to-r from-emerald-400 to-teal-400 hover:from-emerald-300 hover:to-teal-300 shadow-[0_0_12px_rgba(52,211,153,0.35)] active:scale-95 transition-all cursor-pointer"
+                      className="h-9 px-3.5 rounded-xl font-tech-header font-bold text-xs tracking-wider inline-flex items-center justify-center gap-1 text-white bg-gradient-to-r from-violet-500 to-indigo-500 hover:from-violet-400 hover:to-indigo-400 shadow-[0_0_12px_rgba(139,92,246,0.4)] active:scale-95 transition-all cursor-pointer"
                     >
                       <Check className="w-3.5 h-3.5 stroke-[3]" />
                       <span>Sí</span>
@@ -456,7 +558,7 @@ export const BinaryTreePanel: React.FC<BinaryTreePanelProps> = ({
                         void confirmarHijo();
                       }}
                       onMouseEnter={playHoverSound}
-                      className="h-9 px-3 rounded-xl font-tech-header font-bold text-xs tracking-wider inline-flex items-center justify-center gap-1 text-[#03060d] bg-gradient-to-r from-emerald-400 to-teal-400 hover:from-emerald-300 hover:to-teal-300 shadow-[0_0_12px_rgba(52,211,153,0.35)] active:scale-95 transition-all cursor-pointer"
+                      className="h-9 px-3 rounded-xl font-tech-header font-bold text-xs tracking-wider inline-flex items-center justify-center gap-1 text-white bg-gradient-to-r from-violet-500 to-indigo-500 hover:from-violet-400 hover:to-indigo-400 shadow-[0_0_12px_rgba(139,92,246,0.4)] active:scale-95 transition-all cursor-pointer"
                     >
                       <Check className="w-3.5 h-3.5 stroke-[3]" />
                       <span>Aceptar</span>
@@ -532,7 +634,7 @@ export const BinaryTreePanel: React.FC<BinaryTreePanelProps> = ({
                       }}
                       onMouseEnter={playHoverSound}
                       disabled={bloqueado}
-                      className="h-10 px-4 rounded-xl font-tech-header font-bold tracking-wider text-xs sm:text-sm inline-flex items-center justify-center gap-1.5 text-[#03060d] bg-gradient-to-r from-emerald-400 via-emerald-300 to-teal-400 hover:from-emerald-300 hover:to-teal-300 shadow-[0_0_15px_rgba(52,211,153,0.35)] hover:shadow-[0_0_22px_rgba(52,211,153,0.55)] active:scale-95 transition-all duration-200 cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed shrink-0"
+                      className="h-10 px-4 rounded-xl font-tech-header font-bold tracking-wider text-xs sm:text-sm inline-flex items-center justify-center gap-1.5 text-white bg-gradient-to-r from-violet-500 via-violet-500 to-indigo-500 hover:from-violet-400 hover:to-indigo-400 shadow-[0_0_15px_rgba(139,92,246,0.4)] hover:shadow-[0_0_22px_rgba(139,92,246,0.6)] active:scale-95 transition-all duration-200 cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed shrink-0"
                     >
                       <Play className="w-3.5 h-3.5 fill-current" />
                       <span>Crear árbol</span>
