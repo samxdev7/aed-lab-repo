@@ -66,7 +66,7 @@ export const LinearMenuPanel: React.FC<LinearMenuPanelProps> = ({
 
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(52, 211, 153, 0.35)';
+        ctx.fillStyle = 'rgba(168, 85, 247, 0.4)';
         ctx.fill();
 
         for (let j = i + 1; j < particles.length; j++) {
@@ -78,7 +78,7 @@ export const LinearMenuPanel: React.FC<LinearMenuPanelProps> = ({
             ctx.beginPath();
             ctx.moveTo(p.x, p.y);
             ctx.lineTo(p2.x, p2.y);
-            ctx.strokeStyle = `rgba(16, 185, 129, ${1 - dist / 120})`;
+            ctx.strokeStyle = `rgba(99, 102, 241, ${1 - dist / 120})`;
             ctx.lineWidth = 0.5;
             ctx.stroke();
           }
@@ -111,11 +111,11 @@ export const LinearMenuPanel: React.FC<LinearMenuPanelProps> = ({
 
       {/* Destellos ambientales neón */}
       <div
-        className="fixed -top-32 left-1/2 -translate-x-1/2 w-[700px] h-[350px] bg-emerald-600/15 rounded-full blur-[160px] pointer-events-none"
+        className="fixed -top-32 left-1/2 -translate-x-1/2 w-[700px] h-[350px] bg-indigo-600/15 rounded-full blur-[160px] pointer-events-none"
         style={{ transform: `translate3d(${parallax.x * 0.5}px, ${parallax.y * 0.5}px, 0)` }}
       />
       <div
-        className="fixed -bottom-28 -left-28 w-[500px] h-[500px] bg-teal-700/20 rounded-full blur-[150px] pointer-events-none"
+        className="fixed -bottom-28 -left-28 w-[500px] h-[500px] bg-purple-700/20 rounded-full blur-[150px] pointer-events-none"
         style={{ transform: `translate3d(${parallax.x * 0.8}px, ${parallax.y * 0.8}px, 0)` }}
       />
       <div
@@ -147,7 +147,7 @@ export const LinearMenuPanel: React.FC<LinearMenuPanelProps> = ({
         style={{ transform: `translate3d(${parallax.x * 0.3}px, ${parallax.y * 0.3}px, 0)` }}
       >
         <h1
-          className="font-tech-header leading-tight whitespace-nowrap font-extrabold uppercase text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 via-white to-cyan-300 drop-shadow-[0_0_25px_rgba(52,211,153,0.5)]"
+          className="font-tech-header leading-tight whitespace-nowrap font-extrabold uppercase text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-white to-purple-300 drop-shadow-[0_0_25px_rgba(168,85,247,0.5)]"
           style={{
             fontSize: 'clamp(1.2rem, min(7.5vh, 3.2vw), 2.8rem)',
             letterSpacing: '0.08em',
@@ -156,19 +156,19 @@ export const LinearMenuPanel: React.FC<LinearMenuPanelProps> = ({
           Laboratorio #6: Árbol Binario Simple
         </h1>
 
-        <div className="flex items-center justify-center gap-3 text-emerald-200/90 text-sm sm:text-base font-medium">
+        <div className="flex items-center justify-center gap-3 text-purple-200/90 text-sm sm:text-base font-medium">
           <div className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-            <span className="h-[1px] w-10 sm:w-24 bg-gradient-to-r from-transparent to-emerald-400" />
-            <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_10px_#34d399]" />
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+            <span className="h-[1px] w-10 sm:w-24 bg-gradient-to-r from-transparent to-cyan-400" />
+            <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_10px_#22d3ee]" />
           </div>
           <span className="tracking-wide font-bold text-slate-200 uppercase text-xs sm:text-base">
             Estructuras No Lineales (No de Búsqueda)
           </span>
           <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_10px_#22d3ee]" />
-            <span className="h-[1px] w-10 sm:w-24 bg-gradient-to-l from-transparent to-cyan-400" />
-            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+            <span className="w-2 h-2 rounded-full bg-purple-400 shadow-[0_0_10px_#c084fc]" />
+            <span className="h-[1px] w-10 sm:w-24 bg-gradient-to-l from-transparent to-purple-400" />
+            <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />
           </div>
         </div>
       </header>

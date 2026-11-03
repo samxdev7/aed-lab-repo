@@ -1,6 +1,7 @@
-import React, { useMemo, useState } from 'react';
-import { ArrowLeft, Play, RotateCcw } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowLeft, Play, RotateCcw, Network, Check, X } from 'lucide-react';
 import { useSoundEffects } from './useSoundEffects';
+import { useMouseParallax } from './useMouseParallax';
 import { useNotification } from './NotificationContext';
 import {
   iniciarArbol,
@@ -43,6 +44,18 @@ const ESCALA_RESALTADO: number = 1.14;
 const REGEX_MAYUSCULA: RegExp = /^[A-Z]$/;
 const TIPOS_RECORRIDO: TipoRecorrido[] = ['PreOrden', 'InOrden', 'PosOrden'];
 
+const INFO_RECORRIDO: Record<TipoRecorrido, string> = {
+  PreOrden: 'Raíz • Izq • Der',
+  InOrden: 'Izq • Raíz • Der',
+  PosOrden: 'Izq • Der • Raíz',
+};
+
+const PASOS_INICIO = [
+  { numero: '1', titulo: 'Escribe la raíz', clase: 'text-emerald-200 border-emerald-400/40 bg-emerald-500/10', insignia: 'bg-emerald-400 text-[#03060d]' },
+  { numero: '2', titulo: 'Construye con Sí / No', clase: 'text-teal-200 border-teal-400/40 bg-teal-500/10', insignia: 'bg-teal-400 text-[#03060d]' },
+  { numero: '3', titulo: 'Elige un recorrido', clase: 'text-cyan-200 border-cyan-400/40 bg-cyan-500/10', insignia: 'bg-cyan-400 text-[#03060d]' },
+];
+
 /** Azul → verde → verde aqua → celeste, en ciclo según el orden de visita. */
 const PALETA_RESALTADO: ColorResaltado[] = [
   { nodo: '#2563eb', insignia: '#93c5fd' },
@@ -51,7 +64,7 @@ const PALETA_RESALTADO: ColorResaltado[] = [
   { nodo: '#0ea5e9', insignia: '#7dd3fc' },
 ];
 
-/** Disposición visual: columna = posición inorden, por eso los nodos nunca se encimen. */
+/** Disposición visual: columna = posición inorden, por eso los nodos nunca se enciman. */
 function calcularPosiciones(raiz: NodoArbolDTO | null): PosicionNodo[] {
   const posiciones: PosicionNodo[] = [];
   let contadorColumna: number = 0;
@@ -88,6 +101,79 @@ export const BinaryTreePanel: React.FC<BinaryTreePanelProps> = ({
   const { playClickSound, playHoverSound } = useSoundEffects();
   const { showNotification } = useNotification();
 
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const parallax = useMouseParallax(12);
+
+  // Fondo dinámico de nodos/algoritmos (igual al del panel de presentación)
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animationFrameId: number;
+    let width = (canvas.width = window.innerWidth);
+    let height = (canvas.height = window.innerHeight);
+
+    const handleResize = () => {
+      if (!canvas) return;
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    };
+    window.addEventListener('resize', handleResize);
+
+    const numParticles = 45;
+    const particles = Array.from({ length: numParticles }, () => ({
+      x: Math.random() * width,
+      y: Math.random() * height,
+      vx: (Math.random() - 0.5) * 0.4,
+      vy: (Math.random() - 0.5) * 0.4,
+      size: Math.random() * 2 + 1,
+    }));
+
+    const render = () => {
+      ctx.clearRect(0, 0, width, height);
+
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+
+        if (p.x < 0 || p.x > width) p.vx *= -1;
+        if (p.y < 0 || p.y > height) p.vy *= -1;
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(168, 85, 247, 0.4)';
+        ctx.fill();
+
+        for (let j = i + 1; j < particles.length; j++) {
+          const p2 = particles[j];
+          const dx = p.x - p2.x;
+          const dy = p.y - p2.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+
+          if (dist < 130) {
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.strokeStyle = `rgba(99, 102, 241, ${1 - dist / 130})`;
+            ctx.lineWidth = 0.6;
+            ctx.stroke();
+          }
+        }
+      }
+      animationFrameId = requestAnimationFrame(render);
+    };
+
+    render();
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, []);
+
   const [arbolState, setArbolState] = useState<NodoArbolDTO | null>(null);
   const [dialogoState, setDialogoState] = useState<DialogoDTO | null>(null);
   const [tipoRecorridoState, setTipoRecorridoState] = useState<TipoRecorrido | null>(null);
@@ -104,6 +190,7 @@ export const BinaryTreePanel: React.FC<BinaryTreePanelProps> = ({
 
   const [letraRaiz, setLetraRaiz] = useState<string>('');
   const [letraDialogo, setLetraDialogo] = useState<string>('');
+  const [confirmandoReiniciar, setConfirmandoReiniciar] = useState<boolean>(false);
 
   const bloqueado: boolean = dialogo !== null || animando;
 
@@ -142,8 +229,9 @@ export const BinaryTreePanel: React.FC<BinaryTreePanelProps> = ({
 
   /* ---------- Entrada: solo letras A-Z mayúsculas ---------- */
   const filtrarEntrada = (texto: string, aplicar: (valor: string) => void): void => {
-    if (texto === '' || REGEX_MAYUSCULA.test(texto)) {
-      aplicar(texto);
+    const mayuscula = texto.toUpperCase();
+    if (mayuscula === '' || REGEX_MAYUSCULA.test(mayuscula)) {
+      aplicar(mayuscula);
     } else {
       showNotification('warning', 'Carácter no permitido', 'Solo se aceptan letras mayúsculas (A-Z).');
     }
@@ -243,6 +331,7 @@ export const BinaryTreePanel: React.FC<BinaryTreePanelProps> = ({
     playClickSound();
     setLetraRaiz('');
     setLetraDialogo('');
+    setConfirmandoReiniciar(false);
     if (onReiniciar) {
       onReiniciar();
       return;
@@ -258,12 +347,11 @@ export const BinaryTreePanel: React.FC<BinaryTreePanelProps> = ({
     }
   };
 
-
   /* ---------- Medidas del lienzo ---------- */
   const maxColumna: number = posiciones.reduce((m: number, p: PosicionNodo) => Math.max(m, p.columna), 0);
   const maxNivel: number = posiciones.reduce((m: number, p: PosicionNodo) => Math.max(m, p.nivel), 0);
-  const anchoLienzo: number = maxColumna * SEPARACION_HORIZONTAL + MARGEN_LIENZO * 2;
-  const altoLienzo: number = maxNivel * SEPARACION_VERTICAL + MARGEN_LIENZO * 2;
+  const anchoLienzo: number = Math.max(maxColumna * SEPARACION_HORIZONTAL + MARGEN_LIENZO * 2, 280);
+  const altoLienzo: number = Math.max(maxNivel * SEPARACION_VERTICAL + MARGEN_LIENZO * 2, 200);
   const coordX = (p: PosicionNodo): number => MARGEN_LIENZO + p.columna * SEPARACION_HORIZONTAL;
   const coordY = (p: PosicionNodo): number => MARGEN_LIENZO + p.nivel * SEPARACION_VERTICAL;
 
@@ -272,108 +360,476 @@ export const BinaryTreePanel: React.FC<BinaryTreePanelProps> = ({
       ? `${tipoRecorrido}: ${nodosResaltados.map((id: number) => posicionPorId.get(id)?.valor ?? '').join(', ')}`
       : null;
   const textoEstado: string =
-    mensajeEstado ?? textoRecorrido ?? (arbol ? 'Elija un recorrido' : 'Ingrese la letra de la raíz');
-
-  const claseBotonSuave: string =
-    'px-4 py-1.5 rounded-lg font-tech-header font-semibold tracking-wider text-xs sm:text-sm border backdrop-blur-sm transition-all duration-200 ' +
-    'disabled:opacity-30 disabled:cursor-not-allowed enabled:cursor-pointer enabled:hover:-translate-y-0.5';
+    mensajeEstado ?? textoRecorrido ?? (arbol ? 'Árbol listo • Seleccione un recorrido' : 'Ingrese la letra raíz (A-Z) para comenzar');
 
   return (
-    <div className="fixed inset-0 h-dvh w-full bg-[#03060d] text-white flex flex-col items-center overflow-hidden select-none font-tech-body">
+    <div className="fixed inset-0 h-dvh w-full bg-[#090b16] text-white flex flex-col items-center overflow-hidden select-none font-tech-body">
       <style>
         {`
-          @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600&family=Fira+Code:wght@400;500&display=swap');
+          @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fira+Code:wght@500;600;700&display=swap');      
           html, body { overflow: hidden; }
           .font-tech-header { font-family: 'Rajdhani', sans-serif; letter-spacing: 0.06em; }
           .font-tech-body { font-family: 'Plus Jakarta Sans', sans-serif; }
           .font-mono-tech { font-family: 'Fira Code', monospace; }
           .lienzo-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
-          .lienzo-scroll::-webkit-scrollbar-track { background: transparent; }
-          .lienzo-scroll::-webkit-scrollbar-thumb { background: rgba(52, 211, 153, 0.25); border-radius: 4px; }
+          .lienzo-scroll::-webkit-scrollbar-track { background: rgba(3, 6, 13, 0.6); }
+          .lienzo-scroll::-webkit-scrollbar-thumb { background: rgba(52, 211, 153, 0.3); border-radius: 4px; }
+          .lienzo-scroll::-webkit-scrollbar-thumb:hover { background: rgba(52, 211, 153, 0.6); }
+          @keyframes flotar { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+          @keyframes pulso-anillo { 0% { transform: scale(0.9); opacity: 0.6; } 100% { transform: scale(1.8); opacity: 0; } }
+          @keyframes brillo-barrido { 0% { transform: translateX(-120%); } 100% { transform: translateX(320%); } }
+          @keyframes nodo-fantasma { 0%, 100% { opacity: 0.25; } 50% { opacity: 0.85; } }
+          .anim-flotar { animation: flotar 3.5s ease-in-out infinite; }
+          .anim-anillo { animation: pulso-anillo 2.2s ease-out infinite; }
+          .nodo-fantasma { animation: nodo-fantasma 3s ease-in-out infinite; }
+          .fondo-puntos { background-image: radial-gradient(rgba(52, 211, 153, 0.14) 1px, transparent 1px); background-size: 22px 22px; }
+          .boton-brillo { position: relative; overflow: hidden; }
+          .boton-brillo::after { content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 35%; background: linear-gradient(100deg, transparent, rgba(255,255,255,0.28), transparent); transform: translateX(-120%); pointer-events: none; }
+          .boton-brillo:enabled:hover::after { animation: brillo-barrido 0.9s ease; }
         `}
       </style>
 
-      {/* Destellos de fondo */}
-      <div className="absolute top-[-12%] left-[-10%] w-[45%] h-[45%] bg-emerald-600/12 rounded-full blur-[150px] pointer-events-none" />
-      <div className="absolute bottom-[-12%] right-[-10%] w-[45%] h-[45%] bg-cyan-600/12 rounded-full blur-[150px] pointer-events-none" />
+            {/* Canvas para fondo de red de algoritmos */}
+      <canvas ref={canvasRef} className="absolute inset-0 z-0 pointer-events-none opacity-60" />
 
-      {/* TÍTULO CENTRADO */}
-      <header className="relative z-10 shrink-0 w-full text-center pt-4 pb-2">
-        <h1
-          className="font-tech-header font-semibold uppercase text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 via-white to-cyan-300 drop-shadow-[0_0_18px_rgba(52,211,153,0.35)]"
-          style={{ fontSize: 'clamp(1.25rem, 4.5vh, 2rem)', letterSpacing: '0.14em' }}
+      {/* Destellos ambientales neón con parallax */}
+      <div
+        className="absolute -top-32 left-1/2 -translate-x-1/2 w-[700px] h-[350px] bg-indigo-600/15 rounded-full blur-[160px] pointer-events-none z-0"
+        style={{ transform: `translate3d(${parallax.x * 0.5}px, ${parallax.y * 0.5}px, 0)` }}
+      />
+      <div
+        className="absolute -bottom-28 -left-28 w-[500px] h-[500px] bg-purple-700/20 rounded-full blur-[150px] pointer-events-none z-0"
+        style={{ transform: `translate3d(${parallax.x * 0.8}px, ${parallax.y * 0.8}px, 0)` }}
+      />
+      <div
+        className="absolute -bottom-28 -right-28 w-[500px] h-[500px] bg-cyan-600/20 rounded-full blur-[150px] pointer-events-none z-0"
+        style={{ transform: `translate3d(${parallax.x * -0.6}px, ${parallax.y * -0.6}px, 0)` }}
+      />
+
+      {/* Grid de puntos estilizados */}
+      <div
+        className="absolute top-12 left-10 w-32 h-32 opacity-15 pointer-events-none hidden lg:block transition-transform duration-75 z-0"
+        style={{
+          backgroundImage: `radial-gradient(#ffffff 2px, transparent 2px)`,
+          backgroundSize: '14px 14px',
+          transform: `translate3d(${parallax.x * -1}px, ${parallax.y * -1}px, 0)`,
+        }}
+      />
+      <div
+        className="absolute top-12 right-10 w-32 h-32 opacity-15 pointer-events-none hidden lg:block transition-transform duration-75 z-0"
+        style={{
+          backgroundImage: `radial-gradient(#ffffff 2px, transparent 2px)`,
+          backgroundSize: '14px 14px',
+          transform: `translate3d(${parallax.x}px, ${parallax.y}px, 0)`,
+        }}
+      />
+
+      {/* ENCABEZADO */}
+      <header
+        className="relative z-10 shrink-0 w-full text-center pt-3 pb-1 space-y-1 transition-transform duration-75"
+        style={{ transform: `translate3d(${parallax.x * 0.3}px, ${parallax.y * 0.3}px, 0)` }}
+      >
+        <
         >
-          Árbol Binario
-        </h1>
-        <div className="mt-1.5 flex items-center justify-center gap-2">
-          <span className="h-px w-16 bg-gradient-to-r from-transparent to-emerald-400/70" />
+        </>
+        <div className="flex items-center justify-center gap-2">
+          <span className="h-px w-12 sm:w-20 bg-gradient-to-r from-transparent to-emerald-400/70" />
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 shadow-[0_0_8px_#34d399]" />
-          <span className="h-px w-16 bg-gradient-to-l from-transparent to-cyan-400/70" />
+          <span className="font-tech-body tracking-wide font-bold text-slate-200 uppercase text-xs sm:text-sm">
+            Construcción Gráfica Paso a Paso
+          </span>
+          <span className="w-1.5 h-1.5 rounded-full bg-cyan-300 shadow-[0_0_8px_#22d3ee]" />
+          <span className="h-px w-12 sm:w-20 bg-gradient-to-l from-transparent to-cyan-400/70" />
         </div>
       </header>
 
-      {/* CONTROLES CENTRADOS */}
-      <section className="relative z-10 shrink-0 w-full max-w-xl px-4 flex flex-col items-center gap-2 pt-1">
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          <input
-            type="text"
-            value={letraRaiz}
-            maxLength={1}
-            disabled={bloqueado}
-            placeholder="Raíz (A-Z)"
-            onChange={(e: React.ChangeEvent<HTMLInputElement>): void => filtrarEntrada(e.target.value, setLetraRaiz)}
-            onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>): void => {
-              if (e.key === 'Enter' && !bloqueado) crearArbol();
-            }}
-            className="w-28 rounded-lg px-3 py-1.5 text-center bg-white/[0.03] border border-emerald-400/30 text-emerald-100 font-mono-tech text-sm placeholder:text-slate-500 placeholder:text-xs focus:outline-none focus:border-emerald-300/80 focus:shadow-[0_0_14px_rgba(52,211,153,0.25)] disabled:opacity-40 transition-all"
-          />
-          <button
-            onClick={crearArbol}
-            onMouseEnter={playHoverSound}
-            disabled={bloqueado}
-            className={`${claseBotonSuave} inline-flex items-center gap-1.5 bg-emerald-400/15 border-emerald-300/50 text-emerald-100 enabled:hover:bg-emerald-400/25 enabled:hover:shadow-[0_0_16px_rgba(52,211,153,0.3)]`}
-          >
-            <Play className="w-3 h-3" />
-            Crear árbol
-          </button>
-          <button
-            onClick={reiniciar}
-            onMouseEnter={playHoverSound}
-            className={`${claseBotonSuave} inline-flex items-center gap-1.5 bg-rose-400/10 border-rose-300/30 text-rose-200 enabled:hover:bg-rose-400/20 enabled:hover:shadow-[0_0_16px_rgba(244,63,94,0.25)]`}
-          >
-            <RotateCcw className="w-3 h-3" />
-            Reiniciar
-          </button>
+      {/* DOS MINI-MENÚS SEPARADOS Y ESTILIZADOS */}
+      <section className="relative z-10 shrink-0 w-full max-w-4xl px-4 grid grid-cols-1 md:grid-cols-2 gap-3 py-1">
+        
+        {/* MINI-MENÚ 1: CREACIÓN, CONTROL Y PASO A PASO */}
+        <div
+          className={`bg-[#0f1426]/85 backdrop-blur-xl rounded-2xl p-3 flex flex-col justify-between gap-2 transition-all ${
+            dialogo !== null
+              ? 'border-2 border-emerald-400/80 shadow-[0_0_30px_rgba(52,211,153,0.3)]'
+              : 'border border-emerald-500/35 hover:border-emerald-400/60 shadow-[0_0_25px_rgba(16,185,129,0.12)]'
+          }`}
+        >
+          {/* CASO A: DURANTE LA CREACIÓN PASO A PASO (PREGUNTA O INGRESO) */}
+          {dialogo !== null ? (
+            <>
+              <div className="flex items-center justify-between border-b border-emerald-500/20 pb-1">
+                <span className="text-xs font-tech-header font-extrabold uppercase tracking-wider text-emerald-300">
+                  Paso a Paso • Padre: <strong className="text-cyan-300 font-mono-tech text-sm px-1.5 py-0.5 bg-cyan-950/70 border border-cyan-400/30 rounded">{dialogo.valorPadre}</strong>
+                </span>
+                <span className="text-[10px] font-mono-tech font-bold uppercase px-2 py-0.5 rounded-md border bg-amber-500/15 border-amber-400/40 text-amber-300">
+                  En Proceso
+                </span>
+              </div>
+
+              {confirmandoReiniciar ? (
+                <div className="flex items-center justify-between px-3 h-9 rounded-xl bg-rose-950/40 border border-rose-500/50">
+                  <span className="text-xs font-tech-header font-bold text-rose-200">¿Reiniciar árbol? Se perderá el avance</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={(): void => {
+                        setConfirmandoReiniciar(false);
+                        void reiniciar();
+                      }}
+                      onMouseEnter={playHoverSound}
+                      className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-tech-header text-xs font-bold shadow-[0_0_10px_rgba(244,63,94,0.4)] cursor-pointer active:scale-95 transition-all"
+                    >
+                      Sí, reiniciar
+                    </button>
+                    <button
+                      onClick={(): void => {
+                        playHoverSound();
+                        setConfirmandoReiniciar(false);
+                      }}
+                      onMouseEnter={playHoverSound}
+                      className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-tech-header text-xs font-bold cursor-pointer active:scale-95 transition-all"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              ) : dialogo.fase === 'pregunta' ? (
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-slate-100 text-xs sm:text-sm font-medium">
+                    ¿Tiene hijo por la <strong className="text-emerald-300 font-tech-header uppercase text-sm font-bold">{dialogo.lado === 'izq' ? 'izquierda' : 'derecha'}</strong>?
+                  </p>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={(): void => {
+                        setConfirmandoReiniciar(false);
+                        void handleResponderHijo(true);
+                      }}
+                      onMouseEnter={playHoverSound}
+                      className="h-9 px-3.5 rounded-xl font-tech-header font-bold text-xs tracking-wider inline-flex items-center justify-center gap-1 text-white bg-gradient-to-r from-violet-500 to-indigo-500 hover:from-violet-400 hover:to-indigo-400 shadow-[0_0_12px_rgba(139,92,246,0.4)] active:scale-95 transition-all cursor-pointer"
+                    >
+                      <Check className="w-3.5 h-3.5 stroke-[3]" />
+                      <span>Sí</span>
+                    </button>
+                    <button
+                      onClick={(): void => {
+                        setConfirmandoReiniciar(false);
+                        void handleResponderHijo(false);
+                      }}
+                      onMouseEnter={playHoverSound}
+                      className="h-9 px-3.5 rounded-xl font-tech-header font-bold text-xs tracking-wider inline-flex items-center justify-center gap-1 text-slate-200 bg-[#121933] hover:bg-[#1a2347] border border-slate-600/50 hover:border-slate-400 active:scale-95 transition-all cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5 stroke-[2.5]" />
+                      <span>No</span>
+                    </button>
+                    <button
+                      onClick={(): void => {
+                        playHoverSound();
+                        setConfirmandoReiniciar(true);
+                      }}
+                      onMouseEnter={playHoverSound}
+                      title="Reiniciar árbol"
+                      className="h-9 px-2.5 rounded-xl font-tech-header font-bold text-xs text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/35 hover:border-rose-400 active:scale-95 transition-all cursor-pointer shrink-0"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-slate-100 text-xs sm:text-sm font-medium">
+                    Hijo <strong className="text-emerald-300 font-tech-header uppercase text-sm font-bold">{dialogo.lado === 'izq' ? 'izquierdo' : 'derecho'}</strong>:
+                  </p>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <input
+                      autoFocus
+                      type="text"
+                      value={letraDialogo}
+                      maxLength={1}
+                      placeholder="A-Z"
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>): void => filtrarEntrada(e.target.value, setLetraDialogo)}
+                      onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>): void => {
+                        if (e.key === 'Enter') {
+                          void confirmarHijo();
+                        }
+                      }}
+                      className="w-14 h-9 rounded-xl bg-[#03060d] border-2 border-emerald-400/70 focus:border-cyan-300 text-emerald-100 font-mono-tech text-base font-bold text-center placeholder:text-slate-600 focus:outline-none focus:shadow-[0_0_15px_rgba(52,211,153,0.45)] transition-all"
+                    />
+                    <button
+                      onClick={(): void => {
+                        void confirmarHijo();
+                      }}
+                      onMouseEnter={playHoverSound}
+                      className="h-9 px-3 rounded-xl font-tech-header font-bold text-xs tracking-wider inline-flex items-center justify-center gap-1 text-white bg-gradient-to-r from-violet-500 to-indigo-500 hover:from-violet-400 hover:to-indigo-400 shadow-[0_0_12px_rgba(139,92,246,0.4)] active:scale-95 transition-all cursor-pointer"
+                    >
+                      <Check className="w-3.5 h-3.5 stroke-[3]" />
+                      <span>Aceptar</span>
+                    </button>
+                    <button
+                      onClick={(): void => {
+                        void handleCancelarHijo();
+                      }}
+                      onMouseEnter={playHoverSound}
+                      className="h-9 px-3 rounded-xl font-tech-header font-bold text-xs tracking-wider inline-flex items-center justify-center gap-1 text-slate-200 bg-[#121933] hover:bg-[#1a2347] border border-slate-600/50 hover:border-slate-400 active:scale-95 transition-all cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5 stroke-[2.5]" />
+                      <span>Cancelar</span>
+                    </button>
+                    <button
+                      onClick={(): void => {
+                        playHoverSound();
+                        setConfirmandoReiniciar(true);
+                      }}
+                      onMouseEnter={playHoverSound}
+                      title="Reiniciar árbol"
+                      className="h-9 px-2.5 rounded-xl font-tech-header font-bold text-xs text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/35 hover:border-rose-400 active:scale-95 transition-all cursor-pointer shrink-0"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            /* CASO B: ESTADO NORMAL (INICIAL O YA CONSTRUIDO) */
+            <>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-tech-header font-extrabold uppercase tracking-wider text-emerald-300">
+                  {arbol !== null ? '1. Árbol Construido' : '1. Nodo Raíz y Control'}
+                </span>
+                <span
+                  className={`text-[10px] font-mono-tech font-bold uppercase px-2 py-0.5 rounded-md border ${
+                    arbol !== null
+                      ? 'bg-emerald-500/15 border-emerald-400/40 text-emerald-300'
+                      : 'bg-slate-800/60 border-slate-700 text-slate-400'
+                  }`}
+                >
+                  {arbol !== null ? 'Completado' : 'Sin Raíz'}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {arbol === null ? (
+                  <>
+                    {/* Input Raíz */}
+                    <div className="relative flex-1 min-w-[7rem]">
+                      <input
+                        type="text"
+                        value={letraRaiz}
+                        maxLength={1}
+                        disabled={bloqueado}
+                        placeholder="Raíz (A-Z)"
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>): void => filtrarEntrada(e.target.value, setLetraRaiz)}
+                        onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>): void => {
+                          if (e.key === 'Enter' && !bloqueado) {
+                            void crearArbol();
+                          }
+                        }}
+                        className="w-full h-10 rounded-xl px-3 text-center bg-[#03060d] border border-emerald-500/40 text-white font-mono-tech text-base font-bold placeholder:text-slate-500 placeholder:text-xs placeholder:font-normal focus:outline-none focus:border-emerald-300 focus:shadow-[0_0_15px_rgba(52,211,153,0.35)] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                      />
+                    </div>
+
+                    {/* Botón Crear Árbol */}
+                    <button
+                      onClick={(): void => {
+                        void crearArbol();
+                      }}
+                      onMouseEnter={playHoverSound}
+                      disabled={bloqueado}
+                      className="h-10 px-4 rounded-xl font-tech-header font-bold tracking-wider text-xs sm:text-sm inline-flex items-center justify-center gap-1.5 text-white bg-gradient-to-r from-violet-500 via-violet-500 to-indigo-500 hover:from-violet-400 hover:to-indigo-400 shadow-[0_0_15px_rgba(139,92,246,0.4)] hover:shadow-[0_0_22px_rgba(139,92,246,0.6)] active:scale-95 transition-all duration-200 cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed shrink-0"
+                    >
+                      <Play className="w-3.5 h-3.5 fill-current" />
+                      <span>Crear árbol</span>
+                    </button>
+                  </>
+                ) : confirmandoReiniciar ? (
+                  <div className="flex-1 flex items-center justify-between px-3 h-10 rounded-xl bg-rose-950/40 border border-rose-500/50">
+                    <span className="text-xs font-tech-header font-bold text-rose-200">¿Reiniciar árbol?</span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={(): void => {
+                          setConfirmandoReiniciar(false);
+                          void reiniciar();
+                        }}
+                        onMouseEnter={playHoverSound}
+                        className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-tech-header text-xs font-bold shadow-[0_0_10px_rgba(244,63,94,0.4)] cursor-pointer active:scale-95 transition-all"
+                      >
+                        Sí, reiniciar
+                      </button>
+                      <button
+                        onClick={(): void => {
+                          playHoverSound();
+                          setConfirmandoReiniciar(false);
+                        }}
+                        onMouseEnter={playHoverSound}
+                        className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-tech-header text-xs font-bold cursor-pointer active:scale-95 transition-all"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                                        <div className="relative flex-1 min-w-0 flex items-center gap-2.5 px-3 h-11 rounded-xl bg-gradient-to-r from-emerald-500/15 via-emerald-500/5 to-transparent border border-emerald-400/40 overflow-hidden">
+                      <span className="relative flex w-5 h-5 items-center justify-center shrink-0">
+                        <span className="absolute inset-0 rounded-full bg-emerald-400/40 anim-anillo" />
+                        <span className="relative w-5 h-5 rounded-full bg-emerald-400 flex items-center justify-center shadow-[0_0_10px_rgba(52,211,153,0.7)]">
+                          <Check className="w-3 h-3 text-[#03060d] stroke-[3.5]" />
+                        </span>
+                      </span>
+                      <div className="flex flex-col leading-tight min-w-0">
+                        <span className="text-emerald-200 font-tech-header font-extrabold text-xs uppercase tracking-wider truncate">
+                          Árbol completo
+                        </span>
+                        <span className="text-slate-400 font-mono-tech text-[10px] truncate">
+                          {posiciones.length} {posiciones.length === 1 ? 'nodo' : 'nodos'} • listo para recorrer
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Botón Reiniciar */}
+                    <button
+                      onClick={(): void => {
+                        playHoverSound();
+                        setConfirmandoReiniciar(true);
+                      }}
+                      onMouseEnter={playHoverSound}
+                      title="Reinicia el árbol al estado inicial"
+                      className="boton-brillo group h-11 px-3.5 rounded-xl font-tech-header font-bold tracking-wider text-xs sm:text-sm inline-flex items-center justify-center gap-1.5 text-rose-200 bg-gradient-to-br from-rose-500/20 to-rose-700/10 border border-rose-400/40 hover:border-rose-300 hover:shadow-[0_0_18px_rgba(244,63,94,0.4)] active:scale-95 transition-all duration-200 cursor-pointer shrink-0"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5 transition-transform duration-500 group-hover:-rotate-180" />
+                      <span className="hidden sm:inline">Reiniciar</span>
+                    </button>
+                  </>
+                )}
+              </div>
+            </>
+          )}
         </div>
 
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          {TIPOS_RECORRIDO.map((tipo: TipoRecorrido) => (
-            <button
-              key={tipo}
-              onClick={(): void => {
-                handleRecorrido(tipo);
-              }}
-              onMouseEnter={playHoverSound}
-              disabled={arbol === null || bloqueado}
-              className={`${claseBotonSuave} min-w-[6.5rem] ${
-                tipoRecorrido === tipo
-                  ? 'bg-cyan-400/20 border-cyan-300/70 text-cyan-100 shadow-[0_0_14px_rgba(34,211,238,0.25)]'
-                  : 'bg-white/[0.03] border-emerald-400/25 text-emerald-100/90 enabled:hover:bg-emerald-400/15 enabled:hover:border-emerald-300/60'
+        {/* MINI-MENÚ 2: RECORRIDOS ALGORÍTMICOS */}
+        <div className="bg-[#0f1426]/85 backdrop-blur-xl border border-cyan-500/35 hover:border-cyan-400/60 rounded-2xl p-3 shadow-[0_0_25px_rgba(34,211,238,0.12)] flex flex-col justify-between gap-2 transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-tech-header font-extrabold uppercase tracking-wider text-cyan-300 flex items-center gap-1.5">
+              <Network className="w-3.5 h-3.5 text-cyan-400" />
+              2. Recorridos
+            </span>
+            <span
+              className={`text-[10px] font-mono-tech font-bold uppercase px-2 py-0.5 rounded-md border ${
+                tipoRecorrido !== null
+                  ? 'bg-cyan-500/15 border-cyan-400/40 text-cyan-200'
+                  : 'bg-slate-800/60 border-slate-700 text-slate-400'
               }`}
             >
-              {tipo}
-            </button>
-          ))}
+              {tipoRecorrido ?? (arbol !== null && !bloqueado ? 'Disponible' : 'En Espera')}
+            </span>
+          </div>
+
+                    <div className="grid grid-cols-3 gap-2">
+            {TIPOS_RECORRIDO.map((tipo: TipoRecorrido, indice: number) => {
+              const estaActivo = tipoRecorrido === tipo;
+              return (
+                <button
+                  key={tipo}
+                  onClick={(): void => {
+                    void handleRecorrido(tipo);
+                  }}
+                  onMouseEnter={playHoverSound}
+                  disabled={arbol === null || bloqueado}
+                  className={`boton-brillo group h-11 px-2 rounded-xl flex flex-col items-center justify-center gap-0.5 transition-all duration-200 ${
+                    estaActivo
+                      ? 'bg-gradient-to-b from-cyan-400/30 to-cyan-600/15 border border-cyan-300 text-cyan-50 shadow-[0_0_18px_rgba(34,211,238,0.45)]'
+                      : 'bg-gradient-to-b from-[#0a1224] to-[#03060d] border border-cyan-500/30 text-cyan-200/90 enabled:hover:border-cyan-300 enabled:hover:shadow-[0_0_14px_rgba(34,211,238,0.3)] enabled:hover:-translate-y-0.5'
+                  } disabled:opacity-30 disabled:cursor-not-allowed enabled:cursor-pointer enabled:active:scale-95`}
+                >
+                  <span className="flex items-center gap-1.5 font-tech-header font-bold text-xs sm:text-sm tracking-wider leading-none">
+                    <span
+                      className={`w-4 h-4 rounded-md text-[9px] font-mono-tech font-bold flex items-center justify-center ${
+                        estaActivo ? 'bg-cyan-300 text-[#03060d]' : 'bg-cyan-500/15 text-cyan-300'
+                      }`}
+                    >
+                      {indice + 1}
+                    </span>
+                    {tipo}
+                  </span>
+                  <span
+                    className={`font-mono-tech text-[9px] leading-none hidden sm:block ${
+                      estaActivo ? 'text-cyan-100/90' : 'text-slate-500 group-enabled:group-hover:text-cyan-200/80'
+                    }`}
+                  >
+                    {INFO_RECORRIDO[tipo]}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </section>
 
-      {/* LIENZO */}
-      <main className="relative z-10 flex-1 min-h-0 w-full max-w-4xl px-4 py-3">
-        <div className="lienzo-scroll w-full h-full flex overflow-auto rounded-2xl bg-white/[0.02] backdrop-blur-md border border-emerald-400/20 shadow-[0_0_40px_rgba(16,185,129,0.08)]">
+      {/* PANTALLA PRINCIPAL: LIENZO 100% LIBRE (SIN MENSAJES QUE TAPEN EL ÁRBOL) */}
+      <main className="relative z-10 flex-1 min-h-0 w-full max-w-5xl px-4 py-2 flex flex-col items-center">
+                <div className="lienzo-scroll fondo-puntos relative w-full h-full flex overflow-auto rounded-2xl bg-[#070b16]/90 backdrop-blur-md border border-emerald-400/25 shadow-[0_0_40px_rgba(16,185,129,0.12)]">
           {arbol === null ? (
-            <p className="w-full self-center text-center px-6 text-slate-500 text-xs sm:text-sm">              
-                El árbol aparecerá aquí a medida que ingrese los nodos
-            </p>
+                        <div className="m-auto flex flex-col items-center text-center px-6 py-6 gap-3">
+              {/* Árbol fantasma decorativo */}
+              <div className="relative anim-flotar">
+                <div className="absolute inset-0 -m-6 rounded-full bg-emerald-500/10 blur-2xl pointer-events-none" />
+                <svg width="230" height="112" viewBox="0 0 230 112" className="relative">
+                  <g stroke="rgba(110,231,183,0.35)" strokeWidth="1.6" strokeDasharray="4 4" fill="none">
+                    <line x1="115" y1="18" x2="68" y2="56" />
+                    <line x1="115" y1="18" x2="162" y2="56" />
+                    <line x1="68" y1="56" x2="40" y2="92" />
+                    <line x1="68" y1="56" x2="96" y2="92" />
+                    <line x1="162" y1="56" x2="190" y2="92" />
+                  </g>
+                  {[
+                    { x: 115, y: 18, l: 'A', d: '0s', raiz: true },
+                    { x: 68, y: 56, l: 'B', d: '0.4s', raiz: false },
+                    { x: 162, y: 56, l: 'C', d: '0.8s', raiz: false },
+                    { x: 40, y: 92, l: 'D', d: '1.2s', raiz: false },
+                    { x: 96, y: 92, l: 'E', d: '1.6s', raiz: false },
+                    { x: 190, y: 92, l: 'F', d: '2s', raiz: false },
+                  ].map((n) => (
+                    <g key={n.l} className="nodo-fantasma" style={{ animationDelay: n.d }}>
+                      <circle
+                        cx={n.x}
+                        cy={n.y}
+                        r={13}
+                        fill={n.raiz ? '#0d4a3f' : '#0b2f2a'}
+                        stroke={n.raiz ? '#6ee7b7' : '#34d399'}
+                        strokeWidth={1.5}
+                        strokeDasharray={n.raiz ? undefined : '3 3'}
+                      />
+                      <text x={n.x} y={n.y} textAnchor="middle" dominantBaseline="central" fontSize={12} fontWeight={600} fill="#a7f3d0" className="font-tech-header">
+                        {n.l}
+                      </text>
+                    </g>
+                  ))}
+                </svg>
+              </div>
+
+              <div>
+                <p className="text-slate-100 font-tech-header font-extrabold text-base sm:text-lg tracking-widest uppercase">
+                  Lienzo de Árbol Binario Listo
+                </p>
+                <p className="text-slate-400 text-xs sm:text-sm max-w-sm mt-1">
+                  Ingrese la letra raíz (A-Z) en el panel superior y haga clic en <strong className="text-emerald-300">Crear árbol</strong> para observar la construcción paso a paso.
+                </p>
+              </div>
+
+              {/* Mini guía de 3 pasos */}
+              <div className="flex flex-wrap items-center justify-center gap-2 mt-1">
+                {PASOS_INICIO.map((paso) => (
+                  <div
+                    key={paso.numero}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-tech-header font-bold tracking-wide ${paso.clase}`}
+                  >
+                    <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-mono-tech font-bold ${paso.insignia}`}>
+                      {paso.numero}
+                    </span>
+                    {paso.titulo}
+                  </div>
+                ))}
+              </div>
+            </div>
           ) : (
             <svg
               width={anchoLienzo}
@@ -392,8 +848,8 @@ export const BinaryTreePanel: React.FC<BinaryTreePanelProps> = ({
                     y1={coordY(padre)}
                     x2={coordX(p)}
                     y2={coordY(p)}
-                    stroke="rgba(110, 231, 183, 0.35)"
-                    strokeWidth={1.5}
+                    stroke="rgba(110, 231, 183, 0.45)"
+                    strokeWidth={1.8}
                   />
                 );
               })}
@@ -425,7 +881,7 @@ export const BinaryTreePanel: React.FC<BinaryTreePanelProps> = ({
                       style={{
                         fill: color ? color.nodo : '#0b2f2a',
                         stroke: color ? color.insignia : '#34d399',
-                        filter: color ? `drop-shadow(0 0 7px ${color.nodo})` : 'drop-shadow(0 0 4px rgba(52,211,153,0.35))',
+                        filter: color ? `drop-shadow(0 0 7px ${color.nodo})` : 'drop-shadow(0 0 5px rgba(52,211,153,0.4))',
                         transition: 'fill 0.45s ease, stroke 0.45s ease, filter 0.45s ease',
                       }}
                     />
@@ -479,101 +935,25 @@ export const BinaryTreePanel: React.FC<BinaryTreePanelProps> = ({
         </div>
       </main>
 
-      {/* ESTADO CENTRADO + ATRÁS */}
-      <footer className="relative z-20 shrink-0 w-full max-w-4xl px-4 pb-3 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-        <span />
-        <div className="max-w-[60vw] truncate text-center rounded-lg px-4 py-1.5 bg-emerald-400/[0.06] border border-emerald-300/20 text-emerald-100/90 text-xs font-mono-tech">
-          {textoEstado}
+      {/* ESTADO INFORMATIVO + BOTÓN ATRÁS */}
+      <footer className="relative z-20 shrink-0 w-full max-w-5xl px-4 pb-3 flex items-center justify-between gap-3">
+        <div className="inline-flex items-center gap-2 max-w-[70vw] truncate rounded-xl px-4 py-2 bg-emerald-500/10 border border-emerald-400/30 text-emerald-200 text-xs font-mono-tech shadow-sm">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399] shrink-0" />
+          <span className="truncate">{textoEstado}</span>
         </div>
-        <div className="flex justify-end">
-          <button
-            onClick={(): void => {
-              playClickSound();
-              onBack();
-            }}
-            onMouseEnter={playHoverSound}
-            className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-semibold text-white bg-gradient-to-r from-blue-600/90 via-indigo-600/90 to-purple-600/90 shadow-md shadow-indigo-600/30 hover:shadow-purple-500/50 hover:-translate-y-0.5 active:scale-95 transition-all duration-300 group cursor-pointer border border-indigo-300/25"
-          >
-            <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform duration-300" />
-            <span className="font-tech-header tracking-wider">Atrás</span>
-          </button>
-        </div>
-      </footer>
 
-      {/* DIÁLOGO (solicitado por el backend) */}
-      {dialogo !== null && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-[#03060d]/75 backdrop-blur-sm">
-          <div className="w-full max-w-xs rounded-2xl border border-emerald-300/30 bg-[#0b1020]/95 p-5 text-center shadow-[0_0_50px_rgba(52,211,153,0.18)]">
-            {dialogo.fase === 'pregunta' ? (
-              <>
-                <p className="text-slate-200 text-sm mb-4 leading-relaxed">
-                  ¿El nodo <strong className="text-cyan-300 font-semibold">{dialogo.valorPadre}</strong> tiene un hijo por la{' '}
-                  <strong className="text-emerald-300 font-semibold">{dialogo.lado === 'izq' ? 'izquierda' : 'derecha'}</strong>?
-                </p>
-                <div className="flex justify-center gap-2">
-                  <button
-                    onClick={(): void => {
-                      handleResponderHijo(true);
-                    }}
-                    onMouseEnter={playHoverSound}
-                    className={`${claseBotonSuave} w-20 bg-emerald-400/20 border-emerald-300/60 text-emerald-100 enabled:hover:bg-emerald-400/30`}
-                  >
-                    Sí
-                  </button>
-                  <button
-                    onClick={(): void => {
-                      handleResponderHijo(false);
-                    }}
-                    onMouseEnter={playHoverSound}
-                    className={`${claseBotonSuave} w-20 bg-white/[0.04] border-white/20 text-slate-200 enabled:hover:bg-white/10`}
-                  >
-                    No
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <p className="text-slate-200 text-sm mb-3">
-                  Hijo {dialogo.lado === 'izq' ? 'izquierdo' : 'derecho'} de{' '}
-                  <strong className="text-cyan-300 font-semibold">{dialogo.valorPadre}</strong>
-                </p>
-                <input
-                  autoFocus
-                  type="text"
-                  value={letraDialogo}
-                  maxLength={1}
-                  placeholder="A-Z"
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
-                    filtrarEntrada(e.target.value, setLetraDialogo)
-                  }
-                  onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>): void => {
-                    if (e.key === 'Enter') confirmarHijo();
-                  }}
-                  className="w-20 rounded-lg px-3 py-2 mb-4 bg-white/[0.04] border border-emerald-300/40 text-emerald-100 font-mono-tech text-xl text-center placeholder:text-slate-600 placeholder:text-sm focus:outline-none focus:border-emerald-300/80 focus:shadow-[0_0_14px_rgba(52,211,153,0.25)]"
-                />
-                <div className="flex justify-center gap-2">
-                  <button
-                    onClick={confirmarHijo}
-                    onMouseEnter={playHoverSound}
-                    className={`${claseBotonSuave} w-24 bg-emerald-400/20 border-emerald-300/60 text-emerald-100 enabled:hover:bg-emerald-400/30`}
-                  >
-                    Aceptar
-                  </button>
-                  <button
-                    onClick={(): void => {
-                      handleCancelarHijo();
-                    }}
-                    onMouseEnter={playHoverSound}
-                    className={`${claseBotonSuave} w-24 bg-white/[0.04] border-white/20 text-slate-200 enabled:hover:bg-white/10`}
-                  >
-                    Cancelar
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+        <button
+          onClick={(): void => {
+            playClickSound();
+            onBack();
+          }}
+          onMouseEnter={playHoverSound}
+          className="relative inline-flex items-center gap-2 px-5 py-2 rounded-xl font-bold text-white bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-[length:200%_auto] hover:bg-right shadow-md shadow-indigo-600/40 hover:shadow-purple-500/60 hover:-translate-y-0.5 active:scale-95 transition-all duration-300 group cursor-pointer border border-indigo-300/30 shrink-0"
+        >
+          <ArrowLeft className="w-4 h-4 transform group-hover:-translate-x-1 transition-transform duration-300" />
+          <span className="font-tech-header text-sm tracking-wider">Atrás</span>
+        </button>
+      </footer>
     </div>
   );
 };
