@@ -467,16 +467,18 @@ export const BinaryTreePanel: React.FC<BinaryTreePanelProps> = ({
               </div>
 
               {confirmandoReiniciar ? (
-                <div className="flex items-center justify-between px-3 h-9 rounded-xl bg-rose-950/40 border border-rose-500/50">
-                  <span className="text-xs font-tech-header font-bold text-rose-200">¿Reiniciar árbol? Se perderá el avance</span>
-                  <div className="flex items-center gap-2">
+                <div className="flex items-center justify-between gap-2.5 px-3 h-9 rounded-xl bg-rose-950/40 border border-rose-500/50">
+                  <span className="text-xs font-tech-header font-bold text-rose-200 min-w-0 truncate">
+                    ¿Reiniciar? Se perderá el avance
+                  </span>
+                  <div className="flex items-center gap-1.5 shrink-0">
                     <button
                       onClick={(): void => {
                         setConfirmandoReiniciar(false);
                         void reiniciar();
                       }}
                       onMouseEnter={playHoverSound}
-                      className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-tech-header text-xs font-bold shadow-[0_0_10px_rgba(244,63,94,0.4)] cursor-pointer active:scale-95 transition-all"
+                      className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-tech-header text-xs font-bold shadow-[0_0_10px_rgba(244,63,94,0.4)] cursor-pointer active:scale-95 transition-all whitespace-nowrap"
                     >
                       Sí, reiniciar
                     </button>
@@ -486,7 +488,7 @@ export const BinaryTreePanel: React.FC<BinaryTreePanelProps> = ({
                         setConfirmandoReiniciar(false);
                       }}
                       onMouseEnter={playHoverSound}
-                      className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-tech-header text-xs font-bold cursor-pointer active:scale-95 transition-all"
+                      className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-tech-header text-xs font-bold cursor-pointer active:scale-95 transition-all whitespace-nowrap"
                     >
                       Cancelar
                     </button>
@@ -641,16 +643,16 @@ export const BinaryTreePanel: React.FC<BinaryTreePanelProps> = ({
                     </button>
                   </>
                 ) : confirmandoReiniciar ? (
-                  <div className="flex-1 flex items-center justify-between px-3 h-10 rounded-xl bg-rose-950/40 border border-rose-500/50">
-                    <span className="text-xs font-tech-header font-bold text-rose-200">¿Reiniciar árbol?</span>
-                    <div className="flex items-center gap-2">
+                  <div className="flex-1 flex items-center justify-between gap-2.5 px-3 h-10 rounded-xl bg-rose-950/40 border border-rose-500/50">
+                    <span className="text-xs font-tech-header font-bold text-rose-200 min-w-0 truncate">¿Reiniciar árbol?</span>
+                    <div className="flex items-center gap-1.5 shrink-0">
                       <button
                         onClick={(): void => {
                           setConfirmandoReiniciar(false);
                           void reiniciar();
                         }}
                         onMouseEnter={playHoverSound}
-                        className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-tech-header text-xs font-bold shadow-[0_0_10px_rgba(244,63,94,0.4)] cursor-pointer active:scale-95 transition-all"
+                        className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-tech-header text-xs font-bold shadow-[0_0_10px_rgba(244,63,94,0.4)] cursor-pointer active:scale-95 transition-all whitespace-nowrap"
                       >
                         Sí, reiniciar
                       </button>
@@ -660,7 +662,7 @@ export const BinaryTreePanel: React.FC<BinaryTreePanelProps> = ({
                           setConfirmandoReiniciar(false);
                         }}
                         onMouseEnter={playHoverSound}
-                        className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-tech-header text-xs font-bold cursor-pointer active:scale-95 transition-all"
+                        className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-tech-header text-xs font-bold cursor-pointer active:scale-95 transition-all whitespace-nowrap"
                       >
                         Cancelar
                       </button>
@@ -808,7 +810,7 @@ export const BinaryTreePanel: React.FC<BinaryTreePanelProps> = ({
 
               <div>
                 <p className="text-slate-100 font-tech-header font-extrabold text-base sm:text-lg tracking-widest uppercase">
-                  Lienzo de Árbol Binario Listo
+                  Lienzo de Árbol Binario 
                 </p>
                 <p className="text-slate-400 text-xs sm:text-sm max-w-sm mt-1">
                   Ingrese la letra raíz (A-Z) en el panel superior y haga clic en <strong className="text-emerald-300">Crear árbol</strong> para observar la construcción paso a paso.
