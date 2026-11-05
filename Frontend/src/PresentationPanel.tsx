@@ -427,7 +427,7 @@ export const PresentationPanel: React.FC<PresentationPanelProps> = ({ onNext }) 
 
               <div className="md:col-span-2 rounded-2xl bg-white/5 border border-white/10 p-4">
                 <h3 className={`font-tech-header text-sm tracking-[0.2em] uppercase mb-2 ${selectedMember.carnetColor}`}>
-                  Aportes al Laboratorio #4
+                  Aportes al Laboratorio #6
                 </h3>
                 <ul className="space-y-2 text-left">
                   {selectedMember.contributions.map((item, i) => (
