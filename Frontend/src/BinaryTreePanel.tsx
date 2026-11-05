@@ -33,6 +33,19 @@ interface ColorResaltado {
   insignia: string;
 }
 
+interface MarcoLlamadaFront {
+  nodoId: number;
+  lado: 'izq' | 'der';
+}
+
+function obtenerTodosLosIds(nodo: NodoArbolDTO | null): number[] {
+  if (!nodo) return [];
+  const ids: number[] = [nodo.id];
+  if (nodo.izq) ids.push(...obtenerTodosLosIds(nodo.izq));
+  if (nodo.der) ids.push(...obtenerTodosLosIds(nodo.der));
+  return ids;
+}
+
 /* ------------------------------------------------------------------ */
 /*  CONSTANTES VISUALES                                                */
 /* ------------------------------------------------------------------ */
@@ -191,6 +204,8 @@ export const BinaryTreePanel: React.FC<BinaryTreePanelProps> = ({
   const [letraRaiz, setLetraRaiz] = useState<string>('');
   const [letraDialogo, setLetraDialogo] = useState<string>('');
   const [confirmandoReiniciar, setConfirmandoReiniciar] = useState<boolean>(false);
+  const [padreActivoId, setPadreActivoId] = useState<number | null>(null);
+  const [pilaLlamadas, setPilaLlamadas] = useState<MarcoLlamadaFront[]>([]);
 
   const bloqueado: boolean = dialogo !== null || animando;
 
@@ -203,6 +218,31 @@ export const BinaryTreePanel: React.FC<BinaryTreePanelProps> = ({
     () => new Map<number, number>(nodosResaltados.map((id: number, i: number): [number, number] => [id, i + 1])),
     [nodosResaltados]
   );
+
+  const idActivoEfectivo: number | null = useMemo(() => {
+    if (dialogo === null) return null;
+    if (padreActivoId !== null) {
+      const pos = posicionPorId.get(padreActivoId);
+      if (pos && pos.valor === dialogo.valorPadre) {
+        return padreActivoId;
+      }
+    }
+    if (pilaLlamadas.length > 0) {
+      const tope = pilaLlamadas[pilaLlamadas.length - 1];
+      const posTope = posicionPorId.get(tope.nodoId);
+      if (posTope && posTope.valor === dialogo.valorPadre) {
+        return tope.nodoId;
+      }
+    }
+    // Fallback de respaldo en caso de desincronización
+    const candidatos = posiciones.filter((p) => p.valor === dialogo.valorPadre);
+    if (candidatos.length > 0) {
+      return candidatos[candidatos.length - 1].id;
+    }
+    return null;
+  }, [dialogo, padreActivoId, pilaLlamadas, posicionPorId, posiciones]);
+
+  const posicionPadreActivo = idActivoEfectivo !== null ? posicionPorId.get(idActivoEfectivo) : undefined;
 
   const aplicarRespuesta = (res: ArbolesRespuestaDTO) => {
     setArbolState(res.arbol);
@@ -253,10 +293,42 @@ export const BinaryTreePanel: React.FC<BinaryTreePanelProps> = ({
       setNodosResaltadosState([]);
       setTipoRecorridoState(null);
       setLetraRaiz('');
+      if (res.arbol) {
+        setPadreActivoId(res.arbol.id);
+        setPilaLlamadas([{ nodoId: res.arbol.id, lado: 'izq' }]);
+      }
       showNotification('success', 'Árbol iniciado', res.mensajeEstado);
     } catch (err: any) {
       showNotification('error', 'Error al iniciar árbol', err.message || 'Error del servidor');
     }
+  };
+
+  const actualizarPilaAlResponderNo = (res: ArbolesRespuestaDTO) => {
+    if (res.dialogo === null) {
+      setPadreActivoId(null);
+      setPilaLlamadas([]);
+      return;
+    }
+    setPilaLlamadas((prev) => {
+      const copia = prev.map((m) => ({ ...m }));
+      if (copia.length === 0) return copia;
+      const tope = copia[copia.length - 1];
+      if (tope.lado === 'izq') {
+        tope.lado = 'der';
+        setPadreActivoId(tope.nodoId);
+        return copia;
+      } else {
+        while (copia.length > 0 && copia[copia.length - 1].lado === 'der') {
+          copia.pop();
+        }
+        if (copia.length > 0) {
+          const nuevoTope = copia[copia.length - 1];
+          nuevoTope.lado = 'der';
+          setPadreActivoId(nuevoTope.nodoId);
+        }
+        return copia;
+      }
+    });
   };
 
   const handleResponderHijo = async (tieneHijo: boolean): Promise<void> => {
@@ -268,6 +340,9 @@ export const BinaryTreePanel: React.FC<BinaryTreePanelProps> = ({
     try {
       const res = await responderPregunta(tieneHijo);
       aplicarRespuesta(res);
+      if (!tieneHijo) {
+        actualizarPilaAlResponderNo(res);
+      }
     } catch (err: any) {
       showNotification('error', 'Error', err.message || 'Error del servidor');
     }
@@ -285,9 +360,16 @@ export const BinaryTreePanel: React.FC<BinaryTreePanelProps> = ({
       return;
     }
     try {
+      const idsPrevios = new Set(obtenerTodosLosIds(arbol));
       const res = await apiConfirmarHijo(letraDialogo);
       aplicarRespuesta(res);
       setLetraDialogo('');
+      const idsNuevos = obtenerTodosLosIds(res.arbol);
+      const nuevoId = idsNuevos.find((id) => !idsPrevios.has(id)) ?? (idsNuevos.length > 0 ? Math.max(...idsNuevos) : null);
+      if (nuevoId !== null) {
+        setPadreActivoId(nuevoId);
+        setPilaLlamadas((prev) => [...prev, { nodoId: nuevoId, lado: 'izq' }]);
+      }
       showNotification('success', 'Nodo insertado', res.mensajeEstado);
     } catch (err: any) {
       showNotification('error', 'Error', err.message || 'Error del servidor');
@@ -304,6 +386,7 @@ export const BinaryTreePanel: React.FC<BinaryTreePanelProps> = ({
     try {
       const res = await apiCancelarHijo();
       aplicarRespuesta(res);
+      actualizarPilaAlResponderNo(res);
     } catch (err: any) {
       showNotification('error', 'Error', err.message || 'Error del servidor');
     }
@@ -332,6 +415,8 @@ export const BinaryTreePanel: React.FC<BinaryTreePanelProps> = ({
     setLetraRaiz('');
     setLetraDialogo('');
     setConfirmandoReiniciar(false);
+    setPadreActivoId(null);
+    setPilaLlamadas([]);
     if (onReiniciar) {
       onReiniciar();
       return;
@@ -350,10 +435,10 @@ export const BinaryTreePanel: React.FC<BinaryTreePanelProps> = ({
   /* ---------- Medidas del lienzo ---------- */
   const maxColumna: number = posiciones.reduce((m: number, p: PosicionNodo) => Math.max(m, p.columna), 0);
   const maxNivel: number = posiciones.reduce((m: number, p: PosicionNodo) => Math.max(m, p.nivel), 0);
-  const anchoLienzo: number = Math.max(maxColumna * SEPARACION_HORIZONTAL + MARGEN_LIENZO * 2, 280);
-  const altoLienzo: number = Math.max(maxNivel * SEPARACION_VERTICAL + MARGEN_LIENZO * 2, 200);
-  const coordX = (p: PosicionNodo): number => MARGEN_LIENZO + p.columna * SEPARACION_HORIZONTAL;
-  const coordY = (p: PosicionNodo): number => MARGEN_LIENZO + p.nivel * SEPARACION_VERTICAL;
+  const anchoLienzo: number = Math.max(maxColumna * SEPARACION_HORIZONTAL + MARGEN_LIENZO * 2 + 80, 360);
+  const altoLienzo: number = Math.max((maxNivel + (dialogo !== null ? 1.4 : 0)) * SEPARACION_VERTICAL + MARGEN_LIENZO * 2 + 50, 260);
+  const coordX = (p: PosicionNodo): number => MARGEN_LIENZO + p.columna * SEPARACION_HORIZONTAL + 40;
+  const coordY = (p: PosicionNodo): number => MARGEN_LIENZO + p.nivel * SEPARACION_VERTICAL + 20;
 
   const textoRecorrido: string | null =
     tipoRecorrido && nodosResaltados.length > 0
@@ -457,26 +542,42 @@ export const BinaryTreePanel: React.FC<BinaryTreePanelProps> = ({
           {/* CASO A: DURANTE LA CREACIÓN PASO A PASO (PREGUNTA O INGRESO) */}
           {dialogo !== null ? (
             <>
-              <div className="flex items-center justify-between border-b border-emerald-500/20 pb-1">
-                <span className="text-xs font-tech-header font-extrabold uppercase tracking-wider text-emerald-300">
-                  Paso a Paso • Padre: <strong className="text-cyan-300 font-mono-tech text-sm px-1.5 py-0.5 bg-cyan-950/70 border border-cyan-400/30 rounded">{dialogo.valorPadre}</strong>
-                </span>
-                <span className="text-[10px] font-mono-tech font-bold uppercase px-2 py-0.5 rounded-md border bg-amber-500/15 border-amber-400/40 text-amber-300">
+              <div className="flex items-center justify-between border-b border-emerald-500/20 pb-1 gap-2">
+                <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+                  <span className="text-xs font-tech-header font-extrabold uppercase tracking-wider text-emerald-300">
+                    Paso a Paso • Padre:
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-cyan-950/90 border border-cyan-400/60 shadow-[0_0_12px_rgba(56,189,248,0.4)]">
+                    <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_6px_#38bdf8] anim-anillo" />
+                    <strong className="text-cyan-200 font-mono-tech text-sm font-bold">{dialogo.valorPadre}</strong>
+                    {posicionPadreActivo && (
+                      <span className="text-[10px] font-mono-tech text-cyan-300/90 border-l border-cyan-500/40 pl-1.5">
+                        Nivel {posicionPadreActivo.nivel}
+                      </span>
+                    )}
+                  </span>
+                  <span className="text-[10px] text-cyan-300/80 font-mono-tech hidden sm:inline">
+                    (Padre resaltado en azul)
+                  </span>
+                </div>
+                <span className="text-[10px] font-mono-tech font-bold uppercase px-2 py-0.5 rounded-md border bg-amber-500/15 border-amber-400/40 text-amber-300 shrink-0">
                   En Proceso
                 </span>
               </div>
 
               {confirmandoReiniciar ? (
-                <div className="flex items-center justify-between px-3 h-9 rounded-xl bg-rose-950/40 border border-rose-500/50">
-                  <span className="text-xs font-tech-header font-bold text-rose-200">¿Reiniciar árbol? Se perderá el avance</span>
-                  <div className="flex items-center gap-2">
+                <div className="flex items-center justify-between gap-2.5 px-3 h-9 rounded-xl bg-rose-950/40 border border-rose-500/50">
+                  <span className="text-xs font-tech-header font-bold text-rose-200 min-w-0 truncate">
+                    ¿Reiniciar? Se perderá el avance
+                  </span>
+                  <div className="flex items-center gap-1.5 shrink-0">
                     <button
                       onClick={(): void => {
                         setConfirmandoReiniciar(false);
                         void reiniciar();
                       }}
                       onMouseEnter={playHoverSound}
-                      className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-tech-header text-xs font-bold shadow-[0_0_10px_rgba(244,63,94,0.4)] cursor-pointer active:scale-95 transition-all"
+                      className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-tech-header text-xs font-bold shadow-[0_0_10px_rgba(244,63,94,0.4)] cursor-pointer active:scale-95 transition-all whitespace-nowrap"
                     >
                       Sí, reiniciar
                     </button>
@@ -486,7 +587,7 @@ export const BinaryTreePanel: React.FC<BinaryTreePanelProps> = ({
                         setConfirmandoReiniciar(false);
                       }}
                       onMouseEnter={playHoverSound}
-                      className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-tech-header text-xs font-bold cursor-pointer active:scale-95 transition-all"
+                      className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-tech-header text-xs font-bold cursor-pointer active:scale-95 transition-all whitespace-nowrap"
                     >
                       Cancelar
                     </button>
@@ -641,16 +742,16 @@ export const BinaryTreePanel: React.FC<BinaryTreePanelProps> = ({
                     </button>
                   </>
                 ) : confirmandoReiniciar ? (
-                  <div className="flex-1 flex items-center justify-between px-3 h-10 rounded-xl bg-rose-950/40 border border-rose-500/50">
-                    <span className="text-xs font-tech-header font-bold text-rose-200">¿Reiniciar árbol?</span>
-                    <div className="flex items-center gap-2">
+                  <div className="flex-1 flex items-center justify-between gap-2.5 px-3 h-10 rounded-xl bg-rose-950/40 border border-rose-500/50">
+                    <span className="text-xs font-tech-header font-bold text-rose-200 min-w-0 truncate">¿Reiniciar árbol?</span>
+                    <div className="flex items-center gap-1.5 shrink-0">
                       <button
                         onClick={(): void => {
                           setConfirmandoReiniciar(false);
                           void reiniciar();
                         }}
                         onMouseEnter={playHoverSound}
-                        className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-tech-header text-xs font-bold shadow-[0_0_10px_rgba(244,63,94,0.4)] cursor-pointer active:scale-95 transition-all"
+                        className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-tech-header text-xs font-bold shadow-[0_0_10px_rgba(244,63,94,0.4)] cursor-pointer active:scale-95 transition-all whitespace-nowrap"
                       >
                         Sí, reiniciar
                       </button>
@@ -660,7 +761,7 @@ export const BinaryTreePanel: React.FC<BinaryTreePanelProps> = ({
                           setConfirmandoReiniciar(false);
                         }}
                         onMouseEnter={playHoverSound}
-                        className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-tech-header text-xs font-bold cursor-pointer active:scale-95 transition-all"
+                        className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-tech-header text-xs font-bold cursor-pointer active:scale-95 transition-all whitespace-nowrap"
                       >
                         Cancelar
                       </button>
@@ -808,7 +909,7 @@ export const BinaryTreePanel: React.FC<BinaryTreePanelProps> = ({
 
               <div>
                 <p className="text-slate-100 font-tech-header font-extrabold text-base sm:text-lg tracking-widest uppercase">
-                  Lienzo de Árbol Binario Listo
+                  Lienzo de Árbol Binario 
                 </p>
                 <p className="text-slate-400 text-xs sm:text-sm max-w-sm mt-1">
                   Ingrese la letra raíz (A-Z) en el panel superior y haga clic en <strong className="text-emerald-300">Crear árbol</strong> para observar la construcción paso a paso.
@@ -858,6 +959,7 @@ export const BinaryTreePanel: React.FC<BinaryTreePanelProps> = ({
               {posiciones.map((p: PosicionNodo) => {
                 const orden: number | undefined = ordenPorId.get(p.id);
                 const resaltado: boolean = orden !== undefined;
+                const esPadreActivo: boolean = p.id === idActivoEfectivo;
                 const color: ColorResaltado | null = orden !== undefined
                   ? PALETA_RESALTADO[(orden - 1) % PALETA_RESALTADO.length]
                   : null;
@@ -869,19 +971,52 @@ export const BinaryTreePanel: React.FC<BinaryTreePanelProps> = ({
                     key={`nodo-${p.id}`}
                     style={{
                       transformOrigin: `${cx}px ${cy}px`,
-                      transform: `scale(${resaltado ? ESCALA_RESALTADO : 1})`,
-                      transition: 'transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                      transform: `scale(${resaltado ? ESCALA_RESALTADO : esPadreActivo ? 1.15 : 1})`,
+                      transition: 'transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease',
+                      opacity: dialogo !== null && !esPadreActivo ? 0.68 : 1,
                     }}
                   >
+                    {/* Anillos de enfoque y pulso si es el padre activo */}
+                    {esPadreActivo && (
+                      <>
+                        {/* Pulso exterior animado */}
+                        <circle
+                          cx={cx}
+                          cy={cy}
+                          r={RADIO_NODO + 8}
+                          fill="none"
+                          stroke="#38bdf8"
+                          strokeWidth={2}
+                          strokeDasharray="4 3"
+                          className="anim-anillo pointer-events-none"
+                          style={{ transformOrigin: `${cx}px ${cy}px` }}
+                        />
+                        {/* Anillo de resplandor fijo */}
+                        <circle
+                          cx={cx}
+                          cy={cy}
+                          r={RADIO_NODO + 4}
+                          fill="none"
+                          stroke="#0284c7"
+                          strokeWidth={1.6}
+                          opacity={0.85}
+                        />
+                      </>
+                    )}
+
                     <circle
                       cx={cx}
                       cy={cy}
                       r={RADIO_NODO}
-                      strokeWidth={1.5}
+                      strokeWidth={esPadreActivo ? 2.6 : 1.5}
                       style={{
-                        fill: color ? color.nodo : '#0b2f2a',
-                        stroke: color ? color.insignia : '#34d399',
-                        filter: color ? `drop-shadow(0 0 7px ${color.nodo})` : 'drop-shadow(0 0 5px rgba(52,211,153,0.4))',
+                        fill: esPadreActivo ? '#082f49' : (color ? color.nodo : '#0b2f2a'),
+                        stroke: esPadreActivo ? '#38bdf8' : (color ? color.insignia : '#34d399'),
+                        filter: esPadreActivo
+                          ? 'drop-shadow(0 0 14px rgba(56, 189, 248, 0.95))'
+                          : color
+                          ? `drop-shadow(0 0 7px ${color.nodo})`
+                          : 'drop-shadow(0 0 5px rgba(52,211,153,0.4))',
                         transition: 'fill 0.45s ease, stroke 0.45s ease, filter 0.45s ease',
                       }}
                     />
@@ -890,13 +1025,109 @@ export const BinaryTreePanel: React.FC<BinaryTreePanelProps> = ({
                       y={cy}
                       textAnchor="middle"
                       dominantBaseline="central"
-                      fontSize={15}
-                      fontWeight={600}
+                      fontSize={esPadreActivo ? 16 : 15}
+                      fontWeight={esPadreActivo ? 800 : 600}
                       fill="#ffffff"
                       className="font-tech-header"
                     >
                       {p.valor}
                     </text>
+
+                    {/* Insignia flotante PADRE ACTUAL */}
+                    {esPadreActivo && (
+                      <g className="pointer-events-none anim-flotar" style={{ transformOrigin: `${cx}px ${cy - RADIO_NODO - 14}px` }}>
+                        <rect
+                          x={cx - 38}
+                          y={cy - RADIO_NODO - 24}
+                          width={76}
+                          height={16}
+                          rx={8}
+                          fill="#0369a1"
+                          stroke="#38bdf8"
+                          strokeWidth={1.2}
+                          filter="drop-shadow(0 0 8px rgba(56,189,248,0.75))"
+                        />
+                        <text
+                          x={cx}
+                          y={cy - RADIO_NODO - 15}
+                          textAnchor="middle"
+                          dominantBaseline="central"
+                          fontSize={9}
+                          fontWeight={800}
+                          fill="#f0f9ff"
+                          className="font-tech-header tracking-wider"
+                        >
+                        PADRE ACTUAL
+                        </text>
+                        <polygon
+                          points={`${cx - 3},${cy - RADIO_NODO - 8} ${cx + 3},${cy - RADIO_NODO - 8} ${cx},${cy - RADIO_NODO - 4}`}
+                          fill="#38bdf8"
+                        />
+                      </g>
+                    )}
+
+                    {/* Guía direccional del hijo solicitado */}
+                    {esPadreActivo && dialogo !== null && (() => {
+                      const targetX = dialogo.lado === 'izq' ? cx - 34 : cx + 34;
+                      const targetY = cy + SEPARACION_VERTICAL;
+                      return (
+                        <g className="pointer-events-none">
+                          <line
+                            x1={cx}
+                            y1={cy}
+                            x2={targetX}
+                            y2={targetY}
+                            stroke="#38bdf8"
+                            strokeWidth={1.8}
+                            strokeDasharray="4 4"
+                            opacity={0.8}
+                          />
+                          <circle
+                            cx={targetX}
+                            cy={targetY}
+                            r={RADIO_NODO - 3}
+                            fill="rgba(8, 47, 73, 0.85)"
+                            stroke="#38bdf8"
+                            strokeWidth={1.5}
+                            strokeDasharray="3 3"
+                            className="anim-anillo"
+                            style={{ transformOrigin: `${targetX}px ${targetY}px` }}
+                          />
+                          <circle
+                            cx={targetX}
+                            cy={targetY}
+                            r={RADIO_NODO - 3}
+                            fill="rgba(8, 47, 73, 0.9)"
+                            stroke="#38bdf8"
+                            strokeWidth={1.5}
+                            strokeDasharray="3 3"
+                          />
+                          <text
+                            x={targetX}
+                            y={targetY}
+                            textAnchor="middle"
+                            dominantBaseline="central"
+                            fontSize={12}
+                            fontWeight={800}
+                            fill="#38bdf8"
+                            className="font-mono-tech"
+                          >
+                            ?
+                          </text>
+                          <text
+                            x={targetX}
+                            y={targetY + RADIO_NODO + 8}
+                            textAnchor="middle"
+                            fontSize={9}
+                            fontWeight={800}
+                            fill="#7dd3fc"
+                            className="font-tech-header uppercase tracking-wider"
+                          >
+                            {dialogo.lado === 'izq' ? '¿Hijo Izq?' : '¿Hijo Der?'}
+                          </text>
+                        </g>
+                      );
+                    })()}
 
                     {/* Número de visita */}
                     <g
